@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>a1an_world</name>
+  <version>0.0.1</version>
+  <description>Paquete del mundo de simulación del proyecto a1an.</description>
+
+  <maintainer email="alanguevara36@gmail.com">Grupo02</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
