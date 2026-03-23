@@ -39,10 +39,10 @@ Clonar el repositorio:
 
 ```bash
 git clone https://github.com/ALANGMupv/a1an.git
-cd a1an
+cd ~/turtlebot3_ws
 ```
 
-Construir el workspace:
+Construir el workspace (solo tras clonarlo):
 
 ```bash
 colcon build
