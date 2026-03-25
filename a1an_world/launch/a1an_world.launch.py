@@ -54,17 +54,6 @@ def generate_launch_description():
         }.items()
     )
 
-    bridge_cmd = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=[
-            '/scan@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan',
-            '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry',
-            '/tf@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
-            '/clock@rosgraph_msgs/msg/Clock@gz.msgs.Clock'
-        ],
-        output='screen'
-    )
 
 
     # ------------------ PATH MODELOS (CLAVE) ------------------
@@ -84,6 +73,5 @@ def generate_launch_description():
     ld.add_action(gz_sim_cmd)
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
-    ld.add_action(bridge_cmd)
 
     return ld
