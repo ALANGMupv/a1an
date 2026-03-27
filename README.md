@@ -58,10 +58,27 @@ source install/setup.bash
 
 ## Ejecución
 
-Para lanzar la simulación:
+Para lanzar la simulación completa (Mundo, Localización y Navegación), es necesario abrir 3 terminales y ejecutar los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
 
+**Terminal 1 (Mundo Gazebo):**
 ```bash
 ros2 launch a1an_world a1an_world.launch.py
+```
+
+**Terminal 2 (Localización y Mapa):**
+```bash
+ros2 launch a1an_localization my_map_server.launch.py
+```
+
+**Terminal 3 (Navegación / Nav2):**
+```bash
+ros2 launch a1an_navigator navigation.launch.py
+```
+
+**Terminal 4 (Opcional - Enviar meta mediante script):**
+Para enviar un objetivo de navegación al robot automáticamente introduciendo coordenadas manualmente, ejecuta:
+```bash
+ros2 run a1an_navigator nav_to_pose.py <coordenada_x> <coordenada_y>
 ```
 
 ---
