@@ -17,8 +17,8 @@ def generate_launch_description():
     launch_file_dir = os.path.join(tb3_pkg, 'launch')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
-    x_pose = LaunchConfiguration('x_pose', default='0.0')
-    y_pose = LaunchConfiguration('y_pose', default='0.0')
+    x_pose = LaunchConfiguration('x_pose', default='-2.0')
+    y_pose = LaunchConfiguration('y_pose', default='-1.0')
 
     # TU MUNDO
     world = os.path.join(
@@ -49,8 +49,8 @@ def generate_launch_description():
             os.path.join(launch_file_dir, 'spawn_turtlebot3.launch.py')
         ),
         launch_arguments={
-            'x_pose': '0.0',
-            'y_pose': '0.0'
+            'x_pose': '-2.0',
+            'y_pose': '-1.0'
         }.items()
     )
 
