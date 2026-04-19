@@ -58,7 +58,7 @@ def main(args=None):
     rclpy.init(args=args)
 
     if len(sys.argv) < 3:
-        print("Uso: ros2 run a1an_navigator nav_to_pose.py <x> <y>")
+        print("Uso: ros2 run a1an_navigator nav_to_pose <x> <y>")
         return
 
     action_client = NavigateToPoseClient()
