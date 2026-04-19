@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'nav_to_pose = a1an_navigator.nav_to_pose:main',
+            'nav_service_node = a1an_navigator.nav_service_node:main',
         ],
     },
 )

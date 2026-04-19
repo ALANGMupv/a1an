@@ -16,6 +16,7 @@ Entre las funcionalidades principales del sistema se encuentran:
 * Localización de objetos mediante visión artificial
 * Apoyo en tareas cotidianas
 * Asistencia en rutinas de rehabilitación
+* **Interfaz web de control remoto** (nueva)
 
 El proyecto se centra en ofrecer una solución tecnológica accesible que ayude a personas que han perdido temporal o permanentemente parte de su movilidad.
 
@@ -23,13 +24,13 @@ El proyecto se centra en ofrecer una solución tecnológica accesible que ayude 
 
 ## Tecnologías utilizadas
 
-El proyecto utiliza principalmente:
-
-* **ROS 2**
+* **ROS 2 Jazzy**
 * **Gazebo / simulación robótica**
 * **Python**
 * **Visión artificial**
-* **Sistemas de navegación autónoma**
+* **Sistemas de navegación autónoma (Nav2)**
+* **ROSBridge / roslibjs** — comunicación web ↔ ROS 2
+* **HTML / CSS / JavaScript** — interfaz web desplegada en Vercel
 
 ---
 
@@ -42,7 +43,13 @@ git clone https://github.com/ALANGMupv/a1an.git
 cd ~/turtlebot3_ws
 ```
 
-Construir el workspace (solo tras clonarlo):
+Instalar ROSBridge:
+
+```bash
+sudo apt install ros-jazzy-rosbridge-suite
+```
+
+Construir el workspace:
 
 ```bash
 colcon build
@@ -58,43 +65,94 @@ source install/setup.bash
 
 ## Ejecución
 
-Para lanzar la simulación completa (Mundo, Localización y Navegación), es necesario abrir 3 terminales y ejecutar los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+### Opción 1 — Script automático (recomendado)
 
-**Terminal 1 (Mundo Gazebo):**
+Lanza todo el stack completo con un solo comando:
+
+```bash
+cd ~/turtlebot3_ws
+./src/scripts/launch_a1an.sh
+```
+
+El script lanza automáticamente en terminales separadas y en el orden correcto:
+1. Gazebo (mundo)
+2. Localización y mapa
+3. Navegación (Nav2)
+4. Nodo de navegación web (`nav_service_node`)
+5. ROSBridge WebSocket server
+
+---
+
+### Opción 2 — Lanzamiento manual
+
+Abre 5 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+
+**Terminal 1 — Mundo Gazebo:**
 ```bash
 ros2 launch a1an_world a1an_world.launch.py
 ```
 
-**Terminal 2 (Localización y Mapa):**
+**Terminal 2 — Localización y Mapa:**
 ```bash
 ros2 launch a1an_localization my_map_server.launch.py
 ```
 
-**Terminal 3 (Navegación / Nav2):**
+**Terminal 3 — Navegación / Nav2:**
 ```bash
 ros2 launch a1an_navigator navigation.launch.py
 ```
 
-**Terminal 4 (Opcional - Enviar meta mediante script):**
-Para enviar un objetivo de navegación al robot automáticamente introduciendo coordenadas manualmente, ejecuta:
+**Terminal 4 — Nodo de navegación web:**
 ```bash
-ros2 run a1an_navigator nav_to_pose <coordenada_x> <coordenada_y>
+ros2 run a1an_navigator nav_service_node
 ```
-Ejemplo:
+
+**Terminal 5 — ROSBridge:**
 ```bash
-ros2 run a1an_navigator nav_to_pose 1 -1
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
 ```
 
 ---
 
-## Arquitectura del Sistema (Nodos y Comunicación)
+## Interfaz Web
 
-El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**, organizada en los siguientes bloques funcionales:
+El proyecto incluye una interfaz web desplegada en Vercel que permite controlar el robot remotamente desde el navegador.
 
-*   **Percepción**: Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
-*   **Planificación**: El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local avanzada para seguir el camino.
-*   **Gestión de Ciclo de Vida**: Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.
-*   **Interfaz de Misión**: El nodo personalizado `nav_to_pose` (en `a1an_navigator`) actúa como cliente de acción, enviando las coordenadas objetivo al `/bt_navigator` y supervisando el progreso de la misión.
+### Acceso
+
+Abre la web en el navegador y conecta al ROSBridge introduciendo la dirección:
+
+```
+ws://localhost:9090
+```
+
+### Funcionalidades
+
+* **Conexión** — Conecta y desconecta del ROSBridge con un botón
+* **Control manual** — 4 botones direccionales + stop para mover el robot manualmente
+* **Navegación por coordenadas** — Introduce X e Y y el robot navega hasta ese punto
+* **Navegación por áreas** — Selector con áreas predefinidas (cocina, sala, habitación...)
+* **Detener navegación** — Cancela la ruta activa y detiene el robot en su posición actual
+
+### Cómo funciona
+
+```
+Web (Vercel) → WebSocket → ROSBridge (puerto 9090) → ROS 2 → TurtleBot
+```
+
+La navegación autónoma funciona a través de un nodo intermediario (`nav_service_node`) que recibe goals desde la web vía topic `/nav_goal` y los envía al action server de Nav2 `/navigate_to_pose`.
+
+---
+
+## Arquitectura del Sistema
+
+El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**:
+
+* **Percepción** — Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
+* **Planificación** — El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local para seguir el camino.
+* **Gestión de Ciclo de Vida** — Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.
+* **Interfaz de Misión** — El nodo `nav_service_node` (en `a1an_navigator`) actúa como puente entre la interfaz web y el action server de Nav2, suscribiéndose al topic `/nav_goal` y `/nav_cancel`.
+* **Interfaz Web** — ROSBridge expone los topics y actions de ROS 2 vía WebSocket, permitiendo que la web interactúe con el robot usando la librería roslibjs.
 
 ---
 
@@ -107,5 +165,3 @@ Equipo A1AN – Proyecto de Robótica
 * Nerea Aguilar
 * Alejandro Vázquez
 * Judit Espinoza
-
-
