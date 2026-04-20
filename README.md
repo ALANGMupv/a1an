@@ -71,7 +71,7 @@ Lanza todo el stack completo con un solo comando:
 
 ```bash
 cd ~/turtlebot3_ws
-./src/scripts/launch_a1an.sh
+./src/a1an/a1an/scripts/launch_a1an.sh
 ```
 
 El script lanza automáticamente en terminales separadas y en el orden correcto:
