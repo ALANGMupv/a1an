@@ -2,9 +2,10 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import AppendEnvironmentVariable, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -18,7 +19,6 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     x_pose = LaunchConfiguration('x_pose', default='-2.0')
     y_pose = LaunchConfiguration('y_pose', default='-1.0')
-    turtlebot3_model = LaunchConfiguration('turtlebot3_model', default='burger_cam')
 
     # TU MUNDO
     world = os.path.join(
@@ -49,8 +49,8 @@ def generate_launch_description():
             os.path.join(launch_file_dir, 'spawn_turtlebot3.launch.py')
         ),
         launch_arguments={
-            'x_pose': x_pose,
-            'y_pose': y_pose
+            'x_pose': '-2.0',
+            'y_pose': '-1.0'
         }.items()
     )
 
@@ -66,31 +66,10 @@ def generate_launch_description():
         ])
     )
 
-    set_turtlebot3_model = SetEnvironmentVariable(
-        name='TURTLEBOT3_MODEL',
-        value=turtlebot3_model
-    )
-
     # ------------------ LAUNCH ------------------
     ld = LaunchDescription()
 
-    ld.add_action(DeclareLaunchArgument(
-        'turtlebot3_model',
-        default_value='burger_cam',
-        description='Modelo TurtleBot3 a lanzar. burger_cam publica /camera/image_raw.'
-    ))
-    ld.add_action(DeclareLaunchArgument(
-        'x_pose',
-        default_value='-2.0',
-        description='Posicion inicial X del robot.'
-    ))
-    ld.add_action(DeclareLaunchArgument(
-        'y_pose',
-        default_value='-1.0',
-        description='Posicion inicial Y del robot.'
-    ))
     ld.add_action(set_env_vars_resources)
-    ld.add_action(set_turtlebot3_model)
     ld.add_action(gz_sim_cmd)
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
