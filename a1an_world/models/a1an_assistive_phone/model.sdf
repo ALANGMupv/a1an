@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
   <model name="a1an_assistive_phone">
-    <static>false</static>
+    <static>true</static>
     <link name="phone_link">
       <inertial>
         <mass>0.18</mass>
@@ -12,18 +12,18 @@
         </inertia>
       </inertial>
       <collision name="collision">
-        <pose>0 0 0.012 0 0 0</pose>
+        <pose>0 0 0.025 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.11 0.20 0.024</size>
+            <size>0.26 0.42 0.05</size>
           </box>
         </geometry>
       </collision>
       <visual name="body_visual">
-        <pose>0 0 0.012 0 0 0</pose>
+        <pose>0 0 0.025 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.11 0.20 0.024</size>
+            <size>0.26 0.42 0.05</size>
           </box>
         </geometry>
         <material>
@@ -33,10 +33,10 @@
         </material>
       </visual>
       <visual name="screen_visual">
-        <pose>0 0 0.026 0 0 0</pose>
+        <pose>0 0 0.055 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.085 0.16 0.003</size>
+            <size>0.20 0.32 0.006</size>
           </box>
         </geometry>
         <material>

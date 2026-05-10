@@ -402,19 +402,19 @@
     <include>
       <uri>model://a1an_assistive_bottle</uri>
       <name>a1an_demo_bottle</name>
-      <pose>-0.85 -1.05 0 0 0 0</pose>
+      <pose>-1.20 -1.00 0 0 0 0</pose>
     </include>
 
     <include>
       <uri>model://a1an_assistive_phone</uri>
       <name>a1an_demo_phone</name>
-      <pose>-0.95 -1.45 0 0 0 0.25</pose>
+      <pose>-1.20 -1.45 0 0 0 0.25</pose>
     </include>
 
     <include>
       <uri>model://a1an_assistive_medicine_box</uri>
       <name>a1an_demo_medicine_box</name>
-      <pose>-0.55 -0.75 0 0 0 -0.35</pose>
+      <pose>-1.20 -0.55 0 0 0 -0.35</pose>
     </include>
 
 	<model name='TV_01_001'>

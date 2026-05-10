@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
   <model name="a1an_assistive_medicine_box">
-    <static>false</static>
+    <static>true</static>
     <link name="medicine_box_link">
       <inertial>
         <mass>0.12</mass>
@@ -12,18 +12,18 @@
         </inertia>
       </inertial>
       <collision name="collision">
-        <pose>0 0 0.055 0 0 0</pose>
+        <pose>0 0 0.13 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.18 0.10 0.11</size>
+            <size>0.36 0.22 0.26</size>
           </box>
         </geometry>
       </collision>
       <visual name="box_visual">
-        <pose>0 0 0.055 0 0 0</pose>
+        <pose>0 0 0.13 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.18 0.10 0.11</size>
+            <size>0.36 0.22 0.26</size>
           </box>
         </geometry>
         <material>
@@ -32,10 +32,10 @@
         </material>
       </visual>
       <visual name="red_cross_vertical">
-        <pose>0.091 0 0.065 0 1.5708 0</pose>
+        <pose>0.182 0 0.15 0 1.5708 0</pose>
         <geometry>
           <box>
-            <size>0.07 0.012 0.004</size>
+            <size>0.16 0.026 0.008</size>
           </box>
         </geometry>
         <material>
@@ -44,10 +44,10 @@
         </material>
       </visual>
       <visual name="red_cross_horizontal">
-        <pose>0.093 0 0.065 0 1.5708 1.5708</pose>
+        <pose>0.186 0 0.15 0 1.5708 1.5708</pose>
         <geometry>
           <box>
-            <size>0.07 0.012 0.004</size>
+            <size>0.16 0.026 0.008</size>
           </box>
         </geometry>
         <material>

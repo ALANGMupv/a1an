@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
   <model name="a1an_assistive_bottle">
-    <static>false</static>
+    <static>true</static>
     <link name="bottle_link">
       <inertial>
         <mass>0.2</mass>
@@ -13,20 +13,20 @@
       </inertial>
 
       <collision name="body_collision">
-        <pose>0 0 0.16 0 0 0</pose>
+        <pose>0 0 0.32 0 0 0</pose>
         <geometry>
           <cylinder>
-            <radius>0.055</radius>
-            <length>0.32</length>
+            <radius>0.11</radius>
+            <length>0.64</length>
           </cylinder>
         </geometry>
       </collision>
       <visual name="body_visual">
-        <pose>0 0 0.16 0 0 0</pose>
+        <pose>0 0 0.32 0 0 0</pose>
         <geometry>
           <cylinder>
-            <radius>0.055</radius>
-            <length>0.32</length>
+            <radius>0.11</radius>
+            <length>0.64</length>
           </cylinder>
         </geometry>
         <material>
@@ -37,20 +37,20 @@
       </visual>
 
       <collision name="neck_collision">
-        <pose>0 0 0.35 0 0 0</pose>
+        <pose>0 0 0.70 0 0 0</pose>
         <geometry>
           <cylinder>
-            <radius>0.028</radius>
-            <length>0.08</length>
+            <radius>0.056</radius>
+            <length>0.16</length>
           </cylinder>
         </geometry>
       </collision>
       <visual name="neck_visual">
-        <pose>0 0 0.35 0 0 0</pose>
+        <pose>0 0 0.70 0 0 0</pose>
         <geometry>
           <cylinder>
-            <radius>0.028</radius>
-            <length>0.08</length>
+            <radius>0.056</radius>
+            <length>0.16</length>
           </cylinder>
         </geometry>
         <material>
@@ -60,11 +60,11 @@
       </visual>
 
       <visual name="cap_visual">
-        <pose>0 0 0.405 0 0 0</pose>
+        <pose>0 0 0.81 0 0 0</pose>
         <geometry>
           <cylinder>
-            <radius>0.032</radius>
-            <length>0.03</length>
+            <radius>0.064</radius>
+            <length>0.06</length>
           </cylinder>
         </geometry>
         <material>
