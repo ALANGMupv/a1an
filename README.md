@@ -43,11 +43,10 @@ git clone https://github.com/ALANGMupv/a1an.git
 cd ~/turtlebot3_ws
 ```
 
-Instalar ROSBridge y el servidor de video para la camara:
+Instalar ROSBridge:
 
 ```bash
 sudo apt install ros-jazzy-rosbridge-suite
-sudo apt install ros-jazzy-web-video-server
 ```
 
 Construir el workspace:
@@ -68,11 +67,10 @@ source install/setup.bash
 
 ### Opción 1 — Script automático (recomendado)
 
-Lanza todo el stack completo con un solo comando (asegúrate de hacer source primero):
+Lanza todo el stack completo con un solo comando:
 
 ```bash
 cd ~/turtlebot3_ws
-source install/setup.bash
 ./src/a1an/scripts/launch_a1an.sh
 ```
 
@@ -82,17 +80,15 @@ El script lanza automáticamente en terminales separadas y en el orden correcto:
 3. Navegación (Nav2)
 4. Nodo de navegación web (`nav_service_node`)
 5. ROSBridge WebSocket server
-6. Servidor de video de la camara (`web_video_server`)
 
 ---
 
 ### Opción 2 — Lanzamiento manual
 
-Abre 6 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+Abre 5 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
 
 **Terminal 1 — Mundo Gazebo:**
 ```bash
-export TURTLEBOT3_MODEL=burger_cam
 ros2 launch a1an_world a1an_world.launch.py
 ```
 
@@ -116,11 +112,6 @@ ros2 run a1an_navigator nav_service_node
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
 ```
 
-**Terminal 6 - Servidor de video de la camara:**
-```bash
-ros2 run web_video_server web_video_server
-```
-
 ---
 
 ## Interfaz Web
@@ -135,14 +126,6 @@ Abre la web en el navegador y conecta al ROSBridge introduciendo la dirección:
 ws://localhost:9090
 ```
 
-La imagen de la camara se sirve mediante `web_video_server` desde:
-
-```
-http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
-```
-
-Si la web se abre desde otro equipo, `localhost` debe sustituirse por la IP del ordenador que esta ejecutando ROS 2.
-
 ### Funcionalidades
 
 * **Conexión** — Conecta y desconecta del ROSBridge con un botón
@@ -150,7 +133,6 @@ Si la web se abre desde otro equipo, `localhost` debe sustituirse por la IP del 
 * **Navegación por coordenadas** — Introduce X e Y y el robot navega hasta ese punto
 * **Navegación por áreas** — Selector con áreas predefinidas (cocina, sala, habitación...)
 * **Detener navegación** — Cancela la ruta activa y detiene el robot en su posición actual
-* **Camara del robot** - Muestra en streaming la imagen publicada en `/camera/image_raw`
 
 ### Cómo funciona
 
@@ -160,58 +142,12 @@ Web (Vercel) → WebSocket → ROSBridge (puerto 9090) → ROS 2 → TurtleBot
 
 La navegación autónoma funciona a través de un nodo intermediario (`nav_service_node`) que recibe goals desde la web vía topic `/nav_goal` y los envía al action server de Nav2 `/navigate_to_pose`.
 
-### Pruebas y Troubleshooting (Paso 5)
-
-Si al conectar la interfaz web el plano de la casa no carga, asegúrate de que ROS 2 está publicando el mapa.
-
-1. Ejecuta ROSBridge y verifica que el topic existe:
-   ```bash
-   ros2 topic list
-   ```
-   *(Debe aparecer `/map` entre los resultados).*
-
-2. Comprueba que está emitiendo los datos del grid:
-   ```bash
-   ros2 topic echo /map --once
-   ```
-   *(Debería mostrarte una enorme lista de números `-1`, `0` o `100`).*
-
-3. En la web:
-   - Haz clic en *Conectar* a `ws://localhost:9090`.
-   - Si el topic `/map` funciona pero la pantalla sigue negra, revisa inspeccionando los estilos del `<canvas id="rosMapCanvas">` en modo desarrollador de Google Chrome.
-
-El video de la camara no se envia por ROSBridge. La web carga directamente el stream MJPEG publicado por `web_video_server`, que lee el topic `/camera/image_raw`.
-
-### Comprobacion de la camara
-
-Con Gazebo lanzado usando `burger_cam`, se puede comprobar que la camara esta disponible con:
-
-```bash
-ros2 topic list | grep camera
-ros2 topic info /camera/image_raw -v
-```
-
-Debe aparecer al menos:
-
-```text
-/camera/camera_info
-/camera/image_raw
-```
-
-Para probar el stream antes de abrir la web:
-
-```text
-http://localhost:8080/snapshot?topic=/camera/image_raw
-http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
-```
-
 ---
 
 ## Arquitectura del Sistema
 
 El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**:
 
-* **Camara** - El robot se lanza como `burger_cam` para publicar imagen en `/camera/image_raw`; `web_video_server` expone ese topic como stream MJPEG para la interfaz web.
 * **Percepción** — Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
 * **Planificación** — El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local para seguir el camino.
 * **Gestión de Ciclo de Vida** — Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.
