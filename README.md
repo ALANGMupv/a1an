@@ -67,11 +67,12 @@ source install/setup.bash
 
 ### Opción 1 — Script automático (recomendado)
 
-Lanza todo el stack completo con un solo comando:
+Lanza todo el stack completo con un solo comando (asegúrate de hacer source primero):
 
 ```bash
 cd ~/turtlebot3_ws
-./src/a1an/a1an/scripts/launch_a1an.sh
+source install/setup.bash
+./src/a1an/scripts/launch_a1an.sh
 ```
 
 El script lanza automáticamente en terminales separadas y en el orden correcto:
@@ -141,6 +142,26 @@ Web (Vercel) → WebSocket → ROSBridge (puerto 9090) → ROS 2 → TurtleBot
 ```
 
 La navegación autónoma funciona a través de un nodo intermediario (`nav_service_node`) que recibe goals desde la web vía topic `/nav_goal` y los envía al action server de Nav2 `/navigate_to_pose`.
+
+### Pruebas y Troubleshooting (Paso 5)
+
+Si al conectar la interfaz web el plano de la casa no carga, asegúrate de que ROS 2 está publicando el mapa.
+
+1. Ejecuta ROSBridge y verifica que el topic existe:
+   ```bash
+   ros2 topic list
+   ```
+   *(Debe aparecer `/map` entre los resultados).*
+
+2. Comprueba que está emitiendo los datos del grid:
+   ```bash
+   ros2 topic echo /map --once
+   ```
+   *(Debería mostrarte una enorme lista de números `-1`, `0` o `100`).*
+
+3. En la web:
+   - Haz clic en *Conectar* a `ws://localhost:9090`.
+   - Si el topic `/map` funciona pero la pantalla sigue negra, revisa inspeccionando los estilos del `<canvas id="rosMapCanvas">` en modo desarrollador de Google Chrome.
 
 ---
 
