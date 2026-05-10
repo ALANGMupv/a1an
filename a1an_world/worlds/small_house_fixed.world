@@ -397,6 +397,26 @@
         </include>
         <pose frame=''>0.330699 -1.902792 0.065992 0.000000 0.000000 1.571733</pose>
 	</model>
+
+    <!-- Objetos de asistencia para validar la deteccion por vision artificial. -->
+    <include>
+      <uri>model://a1an_assistive_bottle</uri>
+      <name>a1an_demo_bottle</name>
+      <pose>-0.85 -1.05 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://a1an_assistive_phone</uri>
+      <name>a1an_demo_phone</name>
+      <pose>-0.95 -1.45 0 0 0 0.25</pose>
+    </include>
+
+    <include>
+      <uri>model://a1an_assistive_medicine_box</uri>
+      <name>a1an_demo_medicine_box</name>
+      <pose>-0.55 -0.75 0 0 0 -0.35</pose>
+    </include>
+
 	<model name='TV_01_001'>
         <static>true</static>    
         <include>

@@ -1,0 +1,77 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="a1an_assistive_bottle">
+    <static>false</static>
+    <link name="bottle_link">
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.001</ixx>
+          <iyy>0.001</iyy>
+          <izz>0.001</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="body_collision">
+        <pose>0 0 0.16 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.055</radius>
+            <length>0.32</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="body_visual">
+        <pose>0 0 0.16 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.055</radius>
+            <length>0.32</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.0 0.35 0.95 1</ambient>
+          <diffuse>0.0 0.45 1.0 1</diffuse>
+          <specular>0.2 0.2 0.2 1</specular>
+        </material>
+      </visual>
+
+      <collision name="neck_collision">
+        <pose>0 0 0.35 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.028</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="neck_visual">
+        <pose>0 0 0.35 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.028</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.0 0.35 0.95 1</ambient>
+          <diffuse>0.0 0.45 1.0 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="cap_visual">
+        <pose>0 0 0.405 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.032</radius>
+            <length>0.03</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.95 0.95 0.95 1</ambient>
+          <diffuse>1.0 1.0 1.0 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
