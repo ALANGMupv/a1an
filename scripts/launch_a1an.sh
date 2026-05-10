@@ -26,8 +26,9 @@ echo -e "${GREEN}[1/6] Lanzando Gazebo con camara...${NC}"
 gnome-terminal --title="Gazebo" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
-  export TURTLEBOT3_MODEL=burger_cam
-  ros2 launch a1an_world a1an_world.launch.py
+    export TURTLEBOT3_MODEL=burger_cam
+    export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:~/turtlebot3_ws/src/a1an/a1an_world/models
+    ros2 launch a1an_world a1an_world.launch.py
   exec bash"
 
 sleep 5
