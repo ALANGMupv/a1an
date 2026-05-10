@@ -2,7 +2,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import AppendEnvironmentVariable, IncludeLaunchDescription
+from launch.actions import AppendEnvironmentVariable, IncludeLaunchDescription, SetEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -25,6 +25,11 @@ def generate_launch_description():
         a1an_pkg,
         'worlds',
         'small_house_fixed.world'
+    )
+
+    set_tb3_model = SetEnvironmentVariable(
+    	name='TURTLEBOT3_MODEL',
+    	value='burger_cam'
     )
 
     gz_sim_cmd = IncludeLaunchDescription(
@@ -62,13 +67,15 @@ def generate_launch_description():
         value=':'.join([
             os.path.join(a1an_pkg, 'models'),           # TUS modelos
             os.path.join(a1an_pkg, 'worlds'),           # TU world
-            os.path.join(tb3_pkg, 'models')             # Robot TurtleBot3
+            os.path.join(a1an_pkg, 'urdf'),
+	    os.path.join(tb3_pkg, 'models')             # Robot TurtleBot3
         ])
     )
 
     # ------------------ LAUNCH ------------------
     ld = LaunchDescription()
 
+    ld.add_action(set_tb3_model)
     ld.add_action(set_env_vars_resources)
     ld.add_action(gz_sim_cmd)
     ld.add_action(robot_state_publisher_cmd)
