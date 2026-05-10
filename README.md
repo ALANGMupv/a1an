@@ -126,6 +126,18 @@ Abre la web en el navegador y conecta al ROSBridge introduciendo la dirección:
 ws://localhost:9090
 ```
 
+La imagen de la camara se sirve mediante `web_video_server` desde:
+
+```
+http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
+```
+
+`localhost` solo funciona cuando el navegador se abre en el mismo ordenador que esta ejecutando ROS 2 y `web_video_server`. Si se usa la web desplegada o se accede desde otro equipo, hay que sustituirlo por la IP del ordenador del robot/simulador:
+
+```
+http://IP_DEL_ROBOT_O_PC_ROS:8080/stream?topic=/camera/image_raw&type=mjpeg
+```
+
 ### Funcionalidades
 
 * **Conexión** — Conecta y desconecta del ROSBridge con un botón
