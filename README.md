@@ -117,7 +117,7 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messag
 
 **Terminal 6 - Servidor de video de la camara:**
 ```bash
-ros2 run web_video_server web_video_server
+ros2 run web_video_server web_video_server --ros-args -p port:=8081
 ```
 
 ---
@@ -137,13 +137,13 @@ ws://localhost:9090
 La imagen de la camara se sirve mediante `web_video_server` desde:
 
 ```
-http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
+http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
 `localhost` solo funciona cuando el navegador se abre en el mismo ordenador que esta ejecutando ROS 2 y `web_video_server`. Si se usa la web desplegada o se accede desde otro equipo, hay que sustituirlo por la IP del ordenador del robot/simulador:
 
 ```
-http://IP_DEL_ROBOT_O_PC_ROS:8080/stream?topic=/camera/image_raw&type=mjpeg
+http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
 ### Funcionalidades
@@ -184,8 +184,8 @@ Debe aparecer al menos:
 Para probar el stream antes de abrir la web:
 
 ```text
-http://localhost:8080/snapshot?topic=/camera/image_raw
-http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
+http://localhost:8081/snapshot?topic=/camera/image_raw
+http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
 ---
