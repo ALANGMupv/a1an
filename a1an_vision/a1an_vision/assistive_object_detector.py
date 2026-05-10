@@ -172,7 +172,15 @@ class AssistiveObjectDetector(Node):
         self.status_pub.publish(String(data=payload['message']))
 
         if text != self.last_message:
-            self.get_logger().info(payload['message'])
+            if detections:
+                labels = ', '.join(detection['label'] for detection in detections)
+                positions = ', '.join(
+                    f"{detection['label']} en {detection['position']}"
+                    for detection in detections
+                )
+                self.get_logger().info(f'Objetos detectados: {labels}. Posiciones: {positions}')
+            else:
+                self.get_logger().info(payload['message'])
             self.last_message = text
 
     def publish_debug_image(self, image, header):
