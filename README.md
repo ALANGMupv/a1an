@@ -72,7 +72,7 @@ Lanza todo el stack completo con un solo comando:
 
 ```bash
 cd ~/turtlebot3_ws
-./src/a1an/a1an/scripts/launch_a1an.sh
+./src/a1an/scripts/launch_a1an.sh
 ```
 
 El script lanza automáticamente en terminales separadas y en el orden correcto:
@@ -140,7 +140,11 @@ La imagen de la camara se sirve mediante `web_video_server` desde:
 http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
-Si la web se abre desde otro equipo, `localhost` debe sustituirse por la IP del ordenador que esta ejecutando ROS 2.
+`localhost` solo funciona cuando el navegador se abre en el mismo ordenador que esta ejecutando ROS 2 y `web_video_server`. Si se usa la web desplegada o se accede desde otro equipo, hay que sustituirlo por la IP del ordenador del robot/simulador:
+
+```
+http://IP_DEL_ROBOT_O_PC_ROS:8080/stream?topic=/camera/image_raw&type=mjpeg
+```
 
 ### Funcionalidades
 
