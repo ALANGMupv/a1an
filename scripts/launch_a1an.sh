@@ -26,6 +26,7 @@ echo -e "${GREEN}[1/6] Lanzando Gazebo con camara...${NC}"
 gnome-terminal --title="Gazebo" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
+  export TURTLEBOT3_MODEL=burger_cam
   ros2 launch a1an_world a1an_world.launch.py
   exec bash"
 
@@ -76,7 +77,7 @@ echo -e "${GREEN}[6/6] Lanzando web_video_server...${NC}"
 gnome-terminal --title="CameraStream" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
-  ros2 run web_video_server web_video_server
+  ros2 run web_video_server web_video_server --ros-args -p port:=8081
   exec bash"
 
-echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg${NC}"
+echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg${NC}"
