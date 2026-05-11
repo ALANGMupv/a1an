@@ -46,14 +46,16 @@ class AssistiveObjectDetector(Node):
             {
                 'label': 'Telefono',
                 'color': (255, 255, 0),
+                'min_area': 40,
                 'min_aspect_ratio': 1.1,
                 'hsv_ranges': [
-                    (np.array([80, 70, 50]), np.array([100, 255, 255])),
+                    (np.array([80, 45, 35]), np.array([105, 255, 255])),
                 ],
             },
             {
                 'label': 'Medicinas',
                 'color': (0, 0, 255),
+                'min_area': 20,
                 'hsv_ranges': [
                     (np.array([0, 80, 50]), np.array([12, 255, 255])),
                     (np.array([168, 80, 50]), np.array([180, 255, 255])),
@@ -95,17 +97,14 @@ class AssistiveObjectDetector(Node):
             if not contours:
                 continue
 
-            contour = max(contours, key=cv2.contourArea)
+            contour = self.find_best_contour(contours, target)
+            if contour is None:
+                continue
+
             area = cv2.contourArea(contour)
             min_area = int(target.get('min_area', self.min_area))
-            if area < min_area:
-                continue
 
             x, y, w, h = cv2.boundingRect(contour)
-            aspect_ratio = w / float(h)
-            if not self.matches_shape(target, aspect_ratio):
-                continue
-
             center_x = x + w // 2
             center_y = y + h // 2
             confidence = min(1.0, area / (min_area * 8.0))
@@ -151,6 +150,21 @@ class AssistiveObjectDetector(Node):
         for lower, upper in hsv_ranges:
             mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower, upper))
         return mask
+
+    def find_best_contour(self, contours, target):
+        min_area = int(target.get('min_area', self.min_area))
+
+        for contour in sorted(contours, key=cv2.contourArea, reverse=True):
+            area = cv2.contourArea(contour)
+            if area < min_area:
+                continue
+
+            _, _, w, h = cv2.boundingRect(contour)
+            aspect_ratio = w / float(h)
+            if self.matches_shape(target, aspect_ratio):
+                return contour
+
+        return None
 
     @staticmethod
     def clean_mask(mask):
