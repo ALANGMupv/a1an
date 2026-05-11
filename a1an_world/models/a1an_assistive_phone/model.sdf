@@ -40,9 +40,9 @@
           </box>
         </geometry>
         <material>
-          <ambient>0.0 0.85 0.05 1</ambient>
-          <diffuse>0.0 1.0 0.05 1</diffuse>
-          <emissive>0.0 0.18 0.02 1</emissive>
+          <ambient>0.0 0.75 0.85 1</ambient>
+          <diffuse>0.0 0.9 1.0 1</diffuse>
+          <emissive>0.0 0.15 0.18 1</emissive>
         </material>
       </visual>
     </link>

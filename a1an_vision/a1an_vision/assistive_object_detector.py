@@ -37,23 +37,20 @@ class AssistiveObjectDetector(Node):
             {
                 'label': 'Botella',
                 'color': (255, 120, 0),
-                'shape': 'tall',
                 'hsv_ranges': [
-                    (np.array([105, 90, 50]), np.array([130, 255, 255])),
+                    (np.array([105, 70, 50]), np.array([130, 255, 255])),
                 ],
             },
             {
                 'label': 'Telefono',
-                'color': (0, 255, 0),
-                'shape': 'flat',
+                'color': (255, 255, 0),
                 'hsv_ranges': [
-                    (np.array([45, 70, 50]), np.array([80, 255, 255])),
+                    (np.array([80, 70, 50]), np.array([100, 255, 255])),
                 ],
             },
             {
                 'label': 'Medicinas',
                 'color': (0, 0, 255),
-                'shape': 'box',
                 'hsv_ranges': [
                     (np.array([0, 80, 50]), np.array([12, 255, 255])),
                     (np.array([168, 80, 50]), np.array([180, 255, 255])),
@@ -101,14 +98,9 @@ class AssistiveObjectDetector(Node):
                 continue
 
             x, y, w, h = cv2.boundingRect(contour)
-            shape_score = self.shape_score(target['shape'], w, h, area)
-            if shape_score <= 0.0:
-                continue
-
             center_x = x + w // 2
             center_y = y + h // 2
-            area_score = min(1.0, area / (self.min_area * 8.0))
-            confidence = min(1.0, area_score * shape_score)
+            confidence = min(1.0, area / (self.min_area * 8.0))
 
             detection = {
                 'label': target['label'],
@@ -158,33 +150,6 @@ class AssistiveObjectDetector(Node):
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         return cv2.dilate(mask, kernel, iterations=1)
-
-    @staticmethod
-    def shape_score(shape, width, height, area):
-        if width <= 0 or height <= 0:
-            return 0.0
-
-        aspect_ratio = height / float(width)
-        fill_ratio = area / float(width * height)
-
-        if shape == 'tall':
-            if aspect_ratio < 1.35:
-                return 0.0
-            return min(1.0, aspect_ratio / 2.4)
-
-        if shape == 'flat':
-            if aspect_ratio > 0.75:
-                return 0.0
-            return min(1.0, (1.0 / max(aspect_ratio, 0.1)) / 2.5)
-
-        if shape == 'box':
-            if aspect_ratio < 0.45 or aspect_ratio > 1.6:
-                return 0.0
-            if fill_ratio < 0.15:
-                return 0.0
-            return min(1.0, fill_ratio / 0.55)
-
-        return 1.0
 
     @staticmethod
     def position_name(center_x, center_y, shape):
