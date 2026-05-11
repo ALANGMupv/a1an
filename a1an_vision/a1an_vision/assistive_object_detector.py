@@ -68,7 +68,7 @@ class AssistiveObjectDetector(Node):
                 'open_mask': False,
                 'close_iterations': 1,
                 'dilate_iterations': 2,
-                'bbox_padding': 4,
+                'bbox_padding': 10,
                 'hsv_ranges': [
                     (np.array([0, 45, 30]), np.array([15, 255, 255])),
                     (np.array([165, 45, 30]), np.array([180, 255, 255])),

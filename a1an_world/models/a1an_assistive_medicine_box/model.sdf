@@ -32,10 +32,10 @@
         </material>
       </visual>
       <visual name="red_cross_vertical">
-        <pose>0.182 0 0.15 0 1.5708 0</pose>
+        <pose>0.186 0 0.15 0 1.5708 0</pose>
         <geometry>
           <box>
-            <size>0.16 0.026 0.008</size>
+            <size>0.21 0.055 0.012</size>
           </box>
         </geometry>
         <material>
@@ -44,10 +44,10 @@
         </material>
       </visual>
       <visual name="red_cross_horizontal">
-        <pose>0.186 0 0.15 0 1.5708 1.5708</pose>
+        <pose>0.188 0 0.15 0 1.5708 0</pose>
         <geometry>
           <box>
-            <size>0.16 0.026 0.008</size>
+            <size>0.055 0.18 0.014</size>
           </box>
         </geometry>
         <material>
