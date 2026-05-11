@@ -90,4 +90,4 @@ gnome-terminal --title="CameraStream" -- bash -c "
   ros2 run web_video_server web_video_server --ros-args -p port:=8081
   exec bash"
 
-echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg | Vision: /a1an_vision/detected_objects${NC}"
+echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg | Vision: http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg | Detecciones: /a1an_vision/detected_objects${NC}"
