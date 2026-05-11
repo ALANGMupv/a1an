@@ -81,13 +81,14 @@ El script lanza automáticamente en terminales separadas y en el orden correcto:
 3. Navegación (Nav2)
 4. Nodo de navegación web (`nav_service_node`)
 5. ROSBridge WebSocket server
-6. Servidor de video de la camara (`web_video_server`)
+6. Detector de objetos (`a1an_vision`)
+7. Servidor de video de la camara (`web_video_server`)
 
 ---
 
 ### Opción 2 — Lanzamiento manual
 
-Abre 6 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+Abre 7 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
 
 **Terminal 1 — Mundo Gazebo:**
 ```bash
@@ -115,7 +116,12 @@ ros2 run a1an_navigator nav_service_node
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
 ```
 
-**Terminal 6 - Servidor de video de la camara:**
+**Terminal 6 - Vision artificial:**
+```bash
+ros2 launch a1an_vision vision.launch.py
+```
+
+**Terminal 7 - Servidor de video de la camara:**
 ```bash
 ros2 run web_video_server web_video_server --ros-args -p port:=8081
 ```
@@ -188,6 +194,32 @@ http://localhost:8081/snapshot?topic=/camera/image_raw
 http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
+### Comprobacion de vision artificial
+
+El nodo de vision se lanza con:
+
+```bash
+ros2 launch a1an_vision vision.launch.py
+```
+
+Publica las detecciones en:
+
+```bash
+ros2 topic echo /a1an_vision/detected_objects
+```
+
+Tambien publica una imagen procesada con los bounding boxes en:
+
+```bash
+ros2 topic info /a1an_vision/debug_image
+```
+
+Si `web_video_server` esta activo, la imagen procesada se puede comprobar en:
+
+```text
+http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+```
+
 ---
 
 ## Arquitectura del Sistema
@@ -195,6 +227,7 @@ http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**:
 
 * **Camara** - El robot se lanza como `burger_cam` para publicar imagen en `/camera/image_raw`; `web_video_server` expone ese topic como stream MJPEG para la interfaz web.
+* **Vision artificial** - El paquete `a1an_vision` procesa `/camera/image_raw`, detecta objetos domesticos por color y publica resultados en `/a1an_vision/detected_objects`.
 * **Percepción** — Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
 * **Planificación** — El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local para seguir el camino.
 * **Gestión de Ciclo de Vida** — Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.
