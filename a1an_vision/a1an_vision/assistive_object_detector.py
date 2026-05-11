@@ -38,6 +38,7 @@ class AssistiveObjectDetector(Node):
                 'label': 'Botella',
                 'color': (255, 120, 0),
                 'min_area': 120,
+                'max_aspect_ratio': 0.85,
                 'hsv_ranges': [
                     (np.array([95, 35, 25]), np.array([135, 255, 255])),
                 ],
@@ -45,6 +46,7 @@ class AssistiveObjectDetector(Node):
             {
                 'label': 'Telefono',
                 'color': (255, 255, 0),
+                'min_aspect_ratio': 1.1,
                 'hsv_ranges': [
                     (np.array([80, 70, 50]), np.array([100, 255, 255])),
                 ],
@@ -100,6 +102,10 @@ class AssistiveObjectDetector(Node):
                 continue
 
             x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = w / float(h)
+            if not self.matches_shape(target, aspect_ratio):
+                continue
+
             center_x = x + w // 2
             center_y = y + h // 2
             confidence = min(1.0, area / (min_area * 8.0))
@@ -152,6 +158,17 @@ class AssistiveObjectDetector(Node):
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         return cv2.dilate(mask, kernel, iterations=1)
+
+    @staticmethod
+    def matches_shape(target, aspect_ratio):
+        min_aspect_ratio = target.get('min_aspect_ratio')
+        max_aspect_ratio = target.get('max_aspect_ratio')
+
+        if min_aspect_ratio is not None and aspect_ratio < min_aspect_ratio:
+            return False
+        if max_aspect_ratio is not None and aspect_ratio > max_aspect_ratio:
+            return False
+        return True
 
     @staticmethod
     def position_name(center_x, center_y, shape):
