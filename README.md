@@ -82,13 +82,14 @@ El script lanza automáticamente en terminales separadas y en el orden correcto:
 3. Navegación (Nav2)
 4. Nodo de navegación web (`nav_service_node`)
 5. ROSBridge WebSocket server
-6. Servidor de video de la camara (`web_video_server`)
+6. Detector de objetos (`a1an_vision`)
+7. Servidor de video de la camara (`web_video_server`)
 
 ---
 
 ### Opción 2 — Lanzamiento manual
 
-Abre 6 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+Abre 7 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
 
 **Terminal 1 — Mundo Gazebo:**
 ```bash
@@ -116,7 +117,12 @@ ros2 run a1an_navigator nav_service_node
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
 ```
 
-**Terminal 6 - Servidor de video de la camara:**
+**Terminal 6 - Vision artificial:**
+```bash
+ros2 launch a1an_vision vision.launch.py
+```
+
+**Terminal 7 - Servidor de video de la camara:**
 ```bash
 ros2 run web_video_server web_video_server --ros-args -p port:=8081
 ```
@@ -141,10 +147,22 @@ La imagen de la camara se sirve mediante `web_video_server` desde:
 http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
+La imagen procesada por vision artificial, con bounding boxes y etiquetas, se sirve desde:
+
+```
+http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+```
+
 `localhost` solo funciona cuando el navegador se abre en el mismo ordenador que esta ejecutando ROS 2 y `web_video_server`. Si se usa la web desplegada o se accede desde otro equipo, hay que sustituirlo por la IP del ordenador del robot/simulador:
 
 ```
 http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/camera/image_raw&type=mjpeg
+```
+
+Para la imagen procesada desde otro equipo:
+
+```
+http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
 ```
 
 ### Funcionalidades
@@ -155,6 +173,7 @@ http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/camera/image_raw&type=mjpeg
 * **Navegación por áreas** — Selector con áreas predefinidas (cocina, sala, habitación...)
 * **Detener navegación** — Cancela la ruta activa y detiene el robot en su posición actual
 * **Camara del robot** - Muestra en streaming la imagen publicada en `/camera/image_raw`
+* **Vision artificial** - Puede mostrar `/a1an_vision/debug_image` y leer detecciones desde `/a1an_vision/detected_objects`
 
 ### Cómo funciona
 
@@ -186,6 +205,69 @@ Si al conectar la interfaz web el plano de la casa no carga, asegúrate de que R
 
 El video de la camara no se envia por ROSBridge. La web carga directamente el stream MJPEG publicado por `web_video_server`, que lee el topic `/camera/image_raw`.
 
+La imagen con detecciones tampoco se envia por ROSBridge. La web debe cargar el stream MJPEG de `/a1an_vision/debug_image` desde `web_video_server`. Los datos estructurados de deteccion si se consumen por ROSBridge leyendo `/a1an_vision/detected_objects`.
+
+### Contrato para la web
+
+La web debe conectarse a ROSBridge:
+
+```text
+ws://localhost:9090
+```
+
+Si la web se abre desde otro equipo:
+
+```text
+ws://IP_DEL_ROBOT_O_PC_ROS:9090
+```
+
+Topic de detecciones:
+
+```text
+/a1an_vision/detected_objects
+```
+
+Tipo:
+
+```text
+std_msgs/String
+```
+
+El campo `data` contiene un JSON con esta estructura:
+
+```json
+{
+  "detected": true,
+  "message": "Objetos relevantes detectados",
+  "image_width": 320,
+  "image_height": 240,
+  "objects": [
+    {
+      "label": "Botella",
+      "confidence": 1.0,
+      "center_x": 160,
+      "center_y": 120,
+      "bbox": [120, 60, 50, 120],
+      "position": "centro-centro"
+    }
+  ]
+}
+```
+
+Valores posibles de `label`:
+
+```text
+Botella
+Telefono
+Medicinas
+```
+
+Stream recomendado para mostrar vision en la web:
+
+```text
+http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+```
+
 ### Comprobacion de la camara
 
 Con Gazebo lanzado usando `burger_cam`, se puede comprobar que la camara esta disponible con:
@@ -209,6 +291,32 @@ http://localhost:8081/snapshot?topic=/camera/image_raw
 http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
+### Comprobacion de vision artificial
+
+El nodo de vision se lanza con:
+
+```bash
+ros2 launch a1an_vision vision.launch.py
+```
+
+Publica las detecciones en:
+
+```bash
+ros2 topic echo /a1an_vision/detected_objects
+```
+
+Tambien publica una imagen procesada con los bounding boxes en:
+
+```bash
+ros2 topic info /a1an_vision/debug_image
+```
+
+Si `web_video_server` esta activo, la imagen procesada se puede comprobar en:
+
+```text
+http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+```
+
 ---
 
 ## Arquitectura del Sistema
@@ -216,6 +324,7 @@ http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**:
 
 * **Camara** - El robot se lanza como `burger_cam` para publicar imagen en `/camera/image_raw`; `web_video_server` expone ese topic como stream MJPEG para la interfaz web.
+* **Vision artificial** - El paquete `a1an_vision` procesa `/camera/image_raw`, detecta objetos domesticos por color y publica resultados en `/a1an_vision/detected_objects`.
 * **Percepción** — Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
 * **Planificación** — El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local para seguir el camino.
 * **Gestión de Ciclo de Vida** — Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.
