@@ -72,6 +72,9 @@ class AssistiveObjectDetector(Node):
                 'requires_light_background': True,
                 'light_background_padding': 14,
                 'min_light_background_ratio': 0.35,
+                'min_center_y_ratio': 0.35,
+                'max_width_ratio': 0.28,
+                'max_height_ratio': 0.45,
                 'hsv_ranges': [
                     (np.array([0, 45, 30]), np.array([15, 255, 255])),
                     (np.array([165, 45, 30]), np.array([180, 255, 255])),
@@ -113,7 +116,7 @@ class AssistiveObjectDetector(Node):
             if not contours:
                 continue
 
-            contour = self.find_best_contour(contours, target, hsv)
+            contour = self.find_best_contour(contours, target, hsv, image.shape)
             if contour is None:
                 continue
 
@@ -168,7 +171,7 @@ class AssistiveObjectDetector(Node):
             mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower, upper))
         return mask
 
-    def find_best_contour(self, contours, target, hsv):
+    def find_best_contour(self, contours, target, hsv, shape):
         min_area = int(target.get('min_area', self.min_area))
 
         for contour in sorted(contours, key=cv2.contourArea, reverse=True):
@@ -178,7 +181,11 @@ class AssistiveObjectDetector(Node):
 
             _, _, w, h = cv2.boundingRect(contour)
             aspect_ratio = w / float(h)
-            if self.matches_shape(target, aspect_ratio) and self.matches_context(contour, target, hsv):
+            if (
+                self.matches_shape(target, aspect_ratio)
+                and self.matches_size_and_position(contour, target, shape)
+                and self.matches_context(contour, target, hsv)
+            ):
                 return contour
 
         return None
@@ -221,6 +228,26 @@ class AssistiveObjectDetector(Node):
         if min_aspect_ratio is not None and aspect_ratio < min_aspect_ratio:
             return False
         if max_aspect_ratio is not None and aspect_ratio > max_aspect_ratio:
+            return False
+        return True
+
+    @staticmethod
+    def matches_size_and_position(contour, target, shape):
+        x, y, w, h = cv2.boundingRect(contour)
+        height, width = shape[:2]
+        center_y_ratio = (y + h / 2.0) / float(height)
+        width_ratio = w / float(width)
+        height_ratio = h / float(height)
+
+        min_center_y_ratio = target.get('min_center_y_ratio')
+        max_width_ratio = target.get('max_width_ratio')
+        max_height_ratio = target.get('max_height_ratio')
+
+        if min_center_y_ratio is not None and center_y_ratio < min_center_y_ratio:
+            return False
+        if max_width_ratio is not None and width_ratio > max_width_ratio:
+            return False
+        if max_height_ratio is not None and height_ratio > max_height_ratio:
             return False
         return True
 
