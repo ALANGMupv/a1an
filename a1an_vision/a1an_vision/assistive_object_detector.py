@@ -69,6 +69,9 @@ class AssistiveObjectDetector(Node):
                 'close_iterations': 1,
                 'dilate_iterations': 2,
                 'bbox_padding': 10,
+                'requires_light_background': True,
+                'light_background_padding': 14,
+                'min_light_background_ratio': 0.35,
                 'hsv_ranges': [
                     (np.array([0, 45, 30]), np.array([15, 255, 255])),
                     (np.array([165, 45, 30]), np.array([180, 255, 255])),
@@ -110,7 +113,7 @@ class AssistiveObjectDetector(Node):
             if not contours:
                 continue
 
-            contour = self.find_best_contour(contours, target)
+            contour = self.find_best_contour(contours, target, hsv)
             if contour is None:
                 continue
 
@@ -165,7 +168,7 @@ class AssistiveObjectDetector(Node):
             mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower, upper))
         return mask
 
-    def find_best_contour(self, contours, target):
+    def find_best_contour(self, contours, target, hsv):
         min_area = int(target.get('min_area', self.min_area))
 
         for contour in sorted(contours, key=cv2.contourArea, reverse=True):
@@ -175,7 +178,7 @@ class AssistiveObjectDetector(Node):
 
             _, _, w, h = cv2.boundingRect(contour)
             aspect_ratio = w / float(h)
-            if self.matches_shape(target, aspect_ratio):
+            if self.matches_shape(target, aspect_ratio) and self.matches_context(contour, target, hsv):
                 return contour
 
         return None
@@ -220,6 +223,29 @@ class AssistiveObjectDetector(Node):
         if max_aspect_ratio is not None and aspect_ratio > max_aspect_ratio:
             return False
         return True
+
+    @staticmethod
+    def matches_context(contour, target, hsv):
+        if not target.get('requires_light_background', False):
+            return True
+
+        x, y, w, h = cv2.boundingRect(contour)
+        padding = int(target.get('light_background_padding', 10))
+        height, width = hsv.shape[:2]
+        x1 = max(0, x - padding)
+        y1 = max(0, y - padding)
+        x2 = min(width, x + w + padding)
+        y2 = min(height, y + h + padding)
+        roi = hsv[y1:y2, x1:x2]
+
+        if roi.size == 0:
+            return False
+
+        saturation = roi[:, :, 1]
+        value = roi[:, :, 2]
+        light_pixels = np.logical_and(saturation < 65, value > 120)
+        light_ratio = np.count_nonzero(light_pixels) / float(light_pixels.size)
+        return light_ratio >= float(target.get('min_light_background_ratio', 0.35))
 
     @staticmethod
     def position_name(center_x, center_y, shape):
