@@ -16,7 +16,7 @@ class AssistiveObjectDetector(Node):
 
         self.declare_parameter('image_topic', '/camera/image_raw')
         self.declare_parameter('show_window', False)
-        self.declare_parameter('min_area', 250)
+        self.declare_parameter('min_area', 500)
         self.declare_parameter('process_every_n_frames', 2)
 
         self.image_topic = self.get_parameter('image_topic').value
@@ -102,6 +102,8 @@ class AssistiveObjectDetector(Node):
 
             x, y, w, h = cv2.boundingRect(contour)
             shape_score = self.shape_score(target['shape'], w, h, area)
+            if shape_score <= 0.0:
+                continue
 
             center_x = x + w // 2
             center_y = y + h // 2
@@ -167,19 +169,19 @@ class AssistiveObjectDetector(Node):
 
         if shape == 'tall':
             if aspect_ratio < 1.35:
-                return 0.45
+                return 0.0
             return min(1.0, aspect_ratio / 2.4)
 
         if shape == 'flat':
             if aspect_ratio > 0.75:
-                return 0.45
+                return 0.0
             return min(1.0, (1.0 / max(aspect_ratio, 0.1)) / 2.5)
 
         if shape == 'box':
             if aspect_ratio < 0.45 or aspect_ratio > 1.6:
-                return 0.45
+                return 0.0
             if fill_ratio < 0.15:
-                return 0.45
+                return 0.0
             return min(1.0, fill_ratio / 0.55)
 
         return 1.0
