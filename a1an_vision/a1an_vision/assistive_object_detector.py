@@ -39,6 +39,10 @@ class AssistiveObjectDetector(Node):
                 'color': (255, 120, 0),
                 'min_area': 120,
                 'max_aspect_ratio': 0.85,
+                'mask_kernel': 5,
+                'open_mask': True,
+                'close_iterations': 2,
+                'dilate_iterations': 1,
                 'hsv_ranges': [
                     (np.array([95, 35, 25]), np.array([135, 255, 255])),
                 ],
@@ -46,19 +50,28 @@ class AssistiveObjectDetector(Node):
             {
                 'label': 'Telefono',
                 'color': (255, 255, 0),
-                'min_area': 40,
+                'min_area': 8,
                 'min_aspect_ratio': 1.1,
+                'mask_kernel': 3,
+                'open_mask': False,
+                'close_iterations': 1,
+                'dilate_iterations': 2,
                 'hsv_ranges': [
-                    (np.array([80, 45, 35]), np.array([105, 255, 255])),
+                    (np.array([75, 25, 15]), np.array([110, 255, 255])),
                 ],
             },
             {
                 'label': 'Medicinas',
                 'color': (0, 0, 255),
-                'min_area': 20,
+                'min_area': 6,
+                'mask_kernel': 3,
+                'open_mask': False,
+                'close_iterations': 1,
+                'dilate_iterations': 2,
+                'bbox_padding': 4,
                 'hsv_ranges': [
-                    (np.array([0, 80, 50]), np.array([12, 255, 255])),
-                    (np.array([168, 80, 50]), np.array([180, 255, 255])),
+                    (np.array([0, 45, 30]), np.array([15, 255, 255])),
+                    (np.array([165, 45, 30]), np.array([180, 255, 255])),
                 ],
             },
         ]
@@ -91,7 +104,7 @@ class AssistiveObjectDetector(Node):
 
         for target in self.targets:
             mask = self.create_mask(hsv, target['hsv_ranges'])
-            mask = self.clean_mask(mask)
+            mask = self.clean_mask(mask, target)
 
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if not contours:
@@ -105,6 +118,7 @@ class AssistiveObjectDetector(Node):
             min_area = int(target.get('min_area', self.min_area))
 
             x, y, w, h = cv2.boundingRect(contour)
+            x, y, w, h = self.expand_bbox(x, y, w, h, image.shape, int(target.get('bbox_padding', 0)))
             center_x = x + w // 2
             center_y = y + h // 2
             confidence = min(1.0, area / (min_area * 8.0))
@@ -167,11 +181,34 @@ class AssistiveObjectDetector(Node):
         return None
 
     @staticmethod
-    def clean_mask(mask):
-        kernel = np.ones((5, 5), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-        return cv2.dilate(mask, kernel, iterations=1)
+    def clean_mask(mask, target):
+        kernel_size = int(target.get('mask_kernel', 5))
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        if target.get('open_mask', True):
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+        close_iterations = int(target.get('close_iterations', 2))
+        if close_iterations > 0:
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=close_iterations)
+
+        dilate_iterations = int(target.get('dilate_iterations', 1))
+        if dilate_iterations > 0:
+            mask = cv2.dilate(mask, kernel, iterations=dilate_iterations)
+
+        return mask
+
+    @staticmethod
+    def expand_bbox(x, y, w, h, shape, padding):
+        if padding <= 0:
+            return x, y, w, h
+
+        height, width = shape[:2]
+        x1 = max(0, x - padding)
+        y1 = max(0, y - padding)
+        x2 = min(width, x + w + padding)
+        y2 = min(height, y + h + padding)
+        return x1, y1, x2 - x1, y2 - y1
 
     @staticmethod
     def matches_shape(target, aspect_ratio):
