@@ -62,7 +62,7 @@ class AssistiveObjectDetector(Node):
             },
             {
                 'label': 'Medicinas',
-                'color': (0, 0, 255),
+                'color': (255, 0, 255),
                 'min_area': 6,
                 'mask_kernel': 3,
                 'open_mask': False,
@@ -76,8 +76,7 @@ class AssistiveObjectDetector(Node):
                 'max_width_ratio': 0.28,
                 'max_height_ratio': 0.45,
                 'hsv_ranges': [
-                    (np.array([0, 45, 30]), np.array([15, 255, 255])),
-                    (np.array([165, 45, 30]), np.array([180, 255, 255])),
+                    (np.array([135, 45, 30]), np.array([165, 255, 255])),
                 ],
             },
         ]
