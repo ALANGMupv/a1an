@@ -12,7 +12,7 @@ def generate_launch_description():
             parameters=[{
                 'image_topic': '/camera/image_raw',
                 'show_window': False,
-                'min_area': 500,
+                'min_area': 120,
                 'process_every_n_frames': 2,
             }],
         )

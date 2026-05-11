@@ -16,7 +16,7 @@ class AssistiveObjectDetector(Node):
 
         self.declare_parameter('image_topic', '/camera/image_raw')
         self.declare_parameter('show_window', False)
-        self.declare_parameter('min_area', 500)
+        self.declare_parameter('min_area', 120)
         self.declare_parameter('process_every_n_frames', 2)
 
         self.image_topic = self.get_parameter('image_topic').value
@@ -37,8 +37,9 @@ class AssistiveObjectDetector(Node):
             {
                 'label': 'Botella',
                 'color': (255, 120, 0),
+                'min_area': 120,
                 'hsv_ranges': [
-                    (np.array([105, 70, 50]), np.array([130, 255, 255])),
+                    (np.array([95, 35, 25]), np.array([135, 255, 255])),
                 ],
             },
             {
@@ -94,13 +95,14 @@ class AssistiveObjectDetector(Node):
 
             contour = max(contours, key=cv2.contourArea)
             area = cv2.contourArea(contour)
-            if area < self.min_area:
+            min_area = int(target.get('min_area', self.min_area))
+            if area < min_area:
                 continue
 
             x, y, w, h = cv2.boundingRect(contour)
             center_x = x + w // 2
             center_y = y + h // 2
-            confidence = min(1.0, area / (self.min_area * 8.0))
+            confidence = min(1.0, area / (min_area * 8.0))
 
             detection = {
                 'label': target['label'],
