@@ -76,7 +76,7 @@ class AssistiveObjectDetector(Node):
                 'max_width_ratio': 0.28,
                 'max_height_ratio': 0.45,
                 'hsv_ranges': [
-                    (np.array([135, 45, 30]), np.array([165, 255, 255])),
+                    (np.array([165, 80, 40]), np.array([176, 255, 255])),
                 ],
             },
         ]

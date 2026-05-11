@@ -39,8 +39,8 @@
           </box>
         </geometry>
         <material>
-          <ambient>0.9 0.0 0.9 1</ambient>
-          <diffuse>1.0 0.0 1.0 1</diffuse>
+          <ambient>0.9 0.0 0.35 1</ambient>
+          <diffuse>1.0 0.0 0.45 1</diffuse>
         </material>
       </visual>
       <visual name="red_cross_horizontal">
@@ -51,8 +51,8 @@
           </box>
         </geometry>
         <material>
-          <ambient>0.9 0.0 0.9 1</ambient>
-          <diffuse>1.0 0.0 1.0 1</diffuse>
+          <ambient>0.9 0.0 0.35 1</ambient>
+          <diffuse>1.0 0.0 0.45 1</diffuse>
         </material>
       </visual>
       <visual name="red_cross_back_vertical">
@@ -63,8 +63,8 @@
           </box>
         </geometry>
         <material>
-          <ambient>0.9 0.0 0.9 1</ambient>
-          <diffuse>1.0 0.0 1.0 1</diffuse>
+          <ambient>0.9 0.0 0.35 1</ambient>
+          <diffuse>1.0 0.0 0.45 1</diffuse>
         </material>
       </visual>
       <visual name="red_cross_back_horizontal">
@@ -75,8 +75,8 @@
           </box>
         </geometry>
         <material>
-          <ambient>0.9 0.0 0.9 1</ambient>
-          <diffuse>1.0 0.0 1.0 1</diffuse>
+          <ambient>0.9 0.0 0.35 1</ambient>
+          <diffuse>1.0 0.0 0.45 1</diffuse>
         </material>
       </visual>
     </link>
