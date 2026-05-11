@@ -4,6 +4,8 @@ A1AN es un proyecto de robótica cuyo objetivo es diseñar un robot asistente ca
 
 El robot está orientado a tareas como la **búsqueda de objetos, asistencia en actividades diarias y apoyo a ejercicios de rehabilitación**, utilizando tecnologías de navegación autónoma y visión artificial.
 
+Memoria del Proyecto: https://drive.google.com/file/d/1I771XVIDxK4zlh1-aGTyujm1Ljk2Rhj8/view?usp=sharing
+
 ---
 
 ## Descripción del proyecto
