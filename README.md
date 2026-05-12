@@ -165,6 +165,50 @@ Para la imagen procesada desde otro equipo:
 http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
 ```
 
+### Cambiar automaticamente la IP de la web
+
+Si la interfaz web usa `localhost` y se quiere acceder desde otro equipo de la misma red, se puede usar el script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1
+```
+
+El script detecta las IPv4 del ordenador. Si detecta una sola IP, propone usarla pulsando `Enter`. Si detecta varias, muestra una lista para elegir.
+
+Tambien se puede indicar la IP directamente:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1 -Ip 192.168.1.50
+```
+
+Si el codigo de la web esta en otra carpeta, se pasa la ruta con `-Path`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1 -Path "C:\ruta\a\a1an-web"
+```
+
+El script sustituye referencias como:
+
+```text
+localhost:9090
+127.0.0.1:9090
+localhost:8081
+127.0.0.1:8081
+IP_DEL_ROBOT_O_PC_ROS
+IP_DEL_PC
+```
+
+por la IP elegida. Antes de modificar cada archivo crea una copia `.bak`, salvo que se use `-NoBackup`.
+
+Despues de ejecutarlo, comprueba desde el navegador:
+
+```text
+ws://IP_DEL_PC:9090
+http://IP_DEL_PC:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+```
+
+Nota: si se usa la web desplegada en Vercel con `https://`, el navegador puede bloquear conexiones `ws://` y `http://`. Para despliegues publicos estables se recomienda exponer ROSBridge y `web_video_server` mediante `wss://` y `https://`.
+
 ### Funcionalidades
 
 * **Conexión** — Conecta y desconecta del ROSBridge con un botón
