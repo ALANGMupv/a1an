@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 echo -e "${YELLOW}A1AN Robot Stack — Iniciando...${NC}"
 
 # 0. Matar procesos de Gazebo anteriores
-echo -e "${YELLOW}[0/6] Limpiando procesos de Gazebo...${NC}"
+echo -e "${YELLOW}[0/7] Limpiando procesos de Gazebo...${NC}"
 pkill -f gazebo && pkill -f gzserver && pkill -f gzclient
 sleep 2
 
@@ -22,18 +22,19 @@ source /opt/ros/jazzy/setup.bash
 source ~/turtlebot3_ws/install/setup.bash
 
 # 1. Gazebo — mundo
-echo -e "${GREEN}[1/6] Lanzando Gazebo con camara...${NC}"
+echo -e "${GREEN}[1/7] Lanzando Gazebo con camara...${NC}"
 gnome-terminal --title="Gazebo" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
-  export TURTLEBOT3_MODEL=burger_cam
-  ros2 launch a1an_world a1an_world.launch.py
+    export TURTLEBOT3_MODEL=burger_cam
+    export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:~/turtlebot3_ws/src/a1an/a1an_world/models
+    ros2 launch a1an_world a1an_world.launch.py
   exec bash"
 
 sleep 5
 
 # 2. Localización — mapa
-echo -e "${GREEN}[2/6] Lanzando Localización...${NC}"
+echo -e "${GREEN}[2/7] Lanzando Localización...${NC}"
 gnome-terminal --title="Localizacion" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
@@ -43,7 +44,7 @@ gnome-terminal --title="Localizacion" -- bash -c "
 sleep 3
 
 # 3. Navegación — Nav2
-echo -e "${GREEN}[3/6] Lanzando Nav2...${NC}"
+echo -e "${GREEN}[3/7] Lanzando Nav2...${NC}"
 gnome-terminal --title="Nav2" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
@@ -53,7 +54,7 @@ gnome-terminal --title="Nav2" -- bash -c "
 sleep 5
 
 # 4. Nodo de navegación web
-echo -e "${GREEN}[4/6] Lanzando nav_service_node...${NC}"
+echo -e "${GREEN}[4/7] Lanzando nav_service_node...${NC}"
 gnome-terminal --title="NavService" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
@@ -63,7 +64,7 @@ gnome-terminal --title="NavService" -- bash -c "
 sleep 2
 
 # 5. ROSBridge
-echo -e "${GREEN}[5/6] Lanzando ROSBridge...${NC}"
+echo -e "${GREEN}[5/7] Lanzando ROSBridge...${NC}"
 gnome-terminal --title="ROSBridge" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
@@ -72,12 +73,22 @@ gnome-terminal --title="ROSBridge" -- bash -c "
 
 sleep 2
 
-# 6. Servidor web de video para mostrar /camera/image_raw en la web
-echo -e "${GREEN}[6/6] Lanzando web_video_server...${NC}"
+# 6. Vision artificial: deteccion de objetos sobre /camera/image_raw
+echo -e "${GREEN}[6/7] Lanzando detector de objetos...${NC}"
+gnome-terminal --title="A1ANVision" -- bash -c "
+  source /opt/ros/jazzy/setup.bash
+  source ~/turtlebot3_ws/install/setup.bash
+  ros2 launch a1an_vision vision.launch.py
+  exec bash"
+
+sleep 2
+
+# 7. Servidor web de video para mostrar /camera/image_raw en la web
+echo -e "${GREEN}[7/7] Lanzando web_video_server...${NC}"
 gnome-terminal --title="CameraStream" -- bash -c "
   source /opt/ros/jazzy/setup.bash
   source ~/turtlebot3_ws/install/setup.bash
   ros2 run web_video_server web_video_server --ros-args -p port:=8081
   exec bash"
 
-echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg${NC}"
+echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg | Vision: http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg | Detecciones: /a1an_vision/detected_objects${NC}"
