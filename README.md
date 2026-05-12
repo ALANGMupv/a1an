@@ -4,6 +4,8 @@ A1AN es un proyecto de robótica cuyo objetivo es diseñar un robot asistente ca
 
 El robot está orientado a tareas como la **búsqueda de objetos, asistencia en actividades diarias y apoyo a ejercicios de rehabilitación**, utilizando tecnologías de navegación autónoma y visión artificial.
 
+Memoria del Proyecto: https://drive.google.com/file/d/1I771XVIDxK4zlh1-aGTyujm1Ljk2Rhj8/view?usp=sharing
+
 ---
 
 ## Descripción del proyecto
@@ -112,6 +114,11 @@ ros2 run a1an_navigator nav_service_node
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
 ```
 
+**Terminal 6 - Servidor de video de la camara:**
+```bash
+ros2 run web_video_server web_video_server --ros-args -p port:=8081
+```
+
 ---
 
 ## Interfaz Web
@@ -129,13 +136,13 @@ ws://localhost:9090
 La imagen de la camara se sirve mediante `web_video_server` desde:
 
 ```
-http://localhost:8080/stream?topic=/camera/image_raw&type=mjpeg
+http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
 `localhost` solo funciona cuando el navegador se abre en el mismo ordenador que esta ejecutando ROS 2 y `web_video_server`. Si se usa la web desplegada o se accede desde otro equipo, hay que sustituirlo por la IP del ordenador del robot/simulador:
 
 ```
-http://IP_DEL_ROBOT_O_PC_ROS:8080/stream?topic=/camera/image_raw&type=mjpeg
+http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/camera/image_raw&type=mjpeg
 ```
 
 ### Funcionalidades
@@ -153,6 +160,31 @@ Web (Vercel) → WebSocket → ROSBridge (puerto 9090) → ROS 2 → TurtleBot
 ```
 
 La navegación autónoma funciona a través de un nodo intermediario (`nav_service_node`) que recibe goals desde la web vía topic `/nav_goal` y los envía al action server de Nav2 `/navigate_to_pose`.
+
+El video de la camara no se envia por ROSBridge. La web carga directamente el stream MJPEG publicado por `web_video_server`, que lee el topic `/camera/image_raw`.
+
+### Comprobacion de la camara
+
+Con Gazebo lanzado usando `burger_cam`, se puede comprobar que la camara esta disponible con:
+
+```bash
+ros2 topic list | grep camera
+ros2 topic info /camera/image_raw -v
+```
+
+Debe aparecer al menos:
+
+```text
+/camera/camera_info
+/camera/image_raw
+```
+
+Para probar el stream antes de abrir la web:
+
+```text
+http://localhost:8081/snapshot?topic=/camera/image_raw
+http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
+```
 
 ---
 
