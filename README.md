@@ -167,25 +167,24 @@ http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/a1an_vision/debug_image&type=mjp
 
 ### Cambiar automaticamente la IP de la web
 
-Si la interfaz web usa `localhost` y se quiere acceder desde otro equipo de la misma red, se puede usar el script de Linux:
+Si la interfaz web usa `localhost` y se quiere acceder desde otro equipo de la misma red, se puede usar el script:
 
-```bash
-chmod +x ./scripts/update_web_robot_ip.sh
-./scripts/update_web_robot_ip.sh
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1
 ```
 
 El script detecta las IPv4 del ordenador. Si detecta una sola IP, propone usarla pulsando `Enter`. Si detecta varias, muestra una lista para elegir.
 
 Tambien se puede indicar la IP directamente:
 
-```bash
-./scripts/update_web_robot_ip.sh --ip 192.168.1.50
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1 -Ip 192.168.1.50
 ```
 
-Si el codigo de la web esta en otra carpeta, se pasa la ruta con `--path`:
+Si el codigo de la web esta en otra carpeta, se pasa la ruta con `-Path`:
 
-```bash
-./scripts/update_web_robot_ip.sh --path /ruta/a/a1an-web
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1 -Path "C:\ruta\a\a1an-web"
 ```
 
 El script sustituye referencias como:
@@ -199,14 +198,7 @@ IP_DEL_ROBOT_O_PC_ROS
 IP_DEL_PC
 ```
 
-por la IP elegida. Antes de modificar cada archivo crea una copia `.bak`, salvo que se use `--no-backup`.
-
-Si se esta trabajando desde Windows, tambien existe una version PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\update_web_robot_ip.ps1 -Path "C:\ruta\a\a1an-web" -Ip 192.168.1.50
-```
+por la IP elegida. Antes de modificar cada archivo crea una copia `.bak`, salvo que se use `-NoBackup`.
 
 Despues de ejecutarlo, comprueba desde el navegador:
 
