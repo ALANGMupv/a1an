@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 """
 my_map_server.launch.py
 ========================
@@ -18,34 +16,20 @@ Uso:
     ros2 launch a1an_localization my_map_server.launch.py use_sim_time:=false
 """
 
->>>>>>> Stashed changes
 import os
-import launch.actions
-import launch_ros.actions
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+
 def generate_launch_description():
-<<<<<<< Updated upstream
-    nav2_yaml = os.path.join(get_package_share_directory('a1an_localization'), 'param', 'burger.yaml')
-    map_file = os.path.join(get_package_share_directory('a1an_localization'), 'map', 'my_map.yaml')
-    rviz_config_dir = os.path.join(get_package_share_directory('a1an_localization'), 'rviz', 'tb3_navigation2.rviz')
-    return LaunchDescription([
-        Node(
-            package = 'nav2_map_server',
-            executable = 'map_server',
-            name = 'map_server',
-            output = 'screen',
-            parameters=[nav2_yaml,
-                        {'yaml_filename':map_file}]
-=======
     """
     Genera el LaunchDescription con todos los nodos del stack de localización.
 
-    Resuelve las rutas de configuración, mapa y RViz a partir del directorio
-    compartido del paquete ``a1an_localization``.
+    Por defecto arranca en modo simulación (use_sim_time=true); para robot real
+    pasar ``use_sim_time:=false`` desde fuera.
 
     Returns:
         LaunchDescription: Descripción de lanzamiento con los cuatro nodos.
@@ -70,7 +54,6 @@ def generate_launch_description():
             name='map_server',
             output='screen',
             parameters=[nav2_yaml, {'yaml_filename': map_file, 'use_sim_time': use_sim_time}]
->>>>>>> Stashed changes
         ),
         Node(
             package='nav2_amcl',
@@ -84,17 +67,11 @@ def generate_launch_description():
             executable='lifecycle_manager',
             name='lifecycle_manager_localization',
             output='screen',
-<<<<<<< Updated upstream
-            parameters=[{'use_sim_time': True},
-                        {'autostart': True},
-                        {'node_names': ['map_server', 'amcl']}]
-=======
             parameters=[
                 {'use_sim_time': use_sim_time},
                 {'autostart': True},
                 {'node_names': ['map_server', 'amcl']}
             ]
->>>>>>> Stashed changes
         ),
         Node(
             package='rviz2',
