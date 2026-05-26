@@ -85,6 +85,24 @@ Ejemplo:
 ros2 run a1an_navigator nav_to_pose.py 1 -1
 ```
 
+**Terminal 5 (Opcional - Detección de pose humana con webcam):**
+Para abrir una ventana con la cámara del ordenador y visualizar los puntos del cuerpo detectados, instala primero las dependencias:
+```bash
+pip install opencv-python mediapipe
+```
+
+Después reconstruye el workspace y lanza el nodo de percepción:
+```bash
+colcon build
+source install/setup.bash
+ros2 launch a1an_perception webcam_pose.launch.py
+```
+
+La ventana se puede cerrar pulsando `q`. Si la webcam principal no es la `0`, se puede indicar otro índice:
+```bash
+ros2 launch a1an_perception webcam_pose.launch.py camera_index:=1
+```
+
 ---
 
 ## Arquitectura del Sistema (Nodos y Comunicación)
