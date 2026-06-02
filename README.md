@@ -51,6 +51,12 @@ Instalar ROSBridge:
 sudo apt install ros-jazzy-rosbridge-suite
 ```
 
+Instalar dependencias para detección de pose y rehabilitación con webcam:
+
+```bash
+python3 -m pip install --user --break-system-packages "numpy==1.26.4" "opencv-python==4.10.0.84" "mediapipe==0.10.14"
+```
+
 Construir el workspace:
 
 ```bash
@@ -85,12 +91,13 @@ El script lanza automáticamente en terminales separadas y en el orden correcto:
 5. ROSBridge WebSocket server
 6. Detector de objetos (`a1an_vision`)
 7. Servidor de video de la camara (`web_video_server`)
+8. Rehabilitación con webcam (`a1an_perception`)
 
 ---
 
 ### Opción 2 — Lanzamiento manual
 
-Abre 7 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+Abre 8 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
 
 **Terminal 1 — Mundo Gazebo:**
 ```bash
@@ -125,6 +132,24 @@ ros2 launch a1an_vision vision.launch.py
 **Terminal 7 - Servidor de video de la camara:**
 ```bash
 ros2 run web_video_server web_video_server --ros-args -p port:=8081
+```
+
+**Terminal 8 - Rehabilitación con webcam:**
+```bash
+ros2 launch a1an_perception webcam_pose.launch.py
+```
+
+La ventana de rehabilitación detecta automáticamente la webcam. Si hace falta forzar una cámara concreta:
+```bash
+ros2 launch a1an_perception webcam_pose.launch.py camera_index:=0
+```
+
+Controles de la ventana:
+
+```text
+q - salir
+e - reiniciar solo el ejercicio actual
+r - reiniciar toda la rutina
 ```
 
 ---
@@ -325,6 +350,7 @@ El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stac
 
 * **Camara** - El robot se lanza como `burger_cam` para publicar imagen en `/camera/image_raw`; `web_video_server` expone ese topic como stream MJPEG para la interfaz web.
 * **Vision artificial** - El paquete `a1an_vision` procesa `/camera/image_raw`, detecta objetos domesticos por color y publica resultados en `/a1an_vision/detected_objects`.
+* **Rehabilitación** - El paquete `a1an_perception` usa la webcam del ordenador para detectar la pose humana, contar repeticiones y dar feedback sobre ejercicios de recuperación.
 * **Percepción** — Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
 * **Planificación** — El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local para seguir el camino.
 * **Gestión de Ciclo de Vida** — Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.

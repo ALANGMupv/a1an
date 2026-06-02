@@ -1,0 +1,862 @@
+#!/usr/bin/env python3
+
+import importlib
+
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+
+class WebcamPoseNode(Node):
+    """Open the computer webcam and draw MediaPipe human pose landmarks."""
+
+    def __init__(self):
+        super().__init__('webcam_pose_node')
+
+        self.declare_parameter('camera_index', -1)
+        self.declare_parameter('mirror_image', True)
+        self.declare_parameter('model_complexity', 1)
+        self.declare_parameter('frame_width', 640)
+        self.declare_parameter('frame_height', 480)
+        self.declare_parameter('camera_fps', 15)
+        self.declare_parameter('camera_fourcc', 'MJPG')
+        self.declare_parameter('target_repetitions', 10)
+
+        self.camera_index = int(self.get_parameter('camera_index').value)
+        self.mirror_image = self._as_bool(self.get_parameter('mirror_image').value)
+        self.model_complexity = int(self.get_parameter('model_complexity').value)
+        self.frame_width = int(self.get_parameter('frame_width').value)
+        self.frame_height = int(self.get_parameter('frame_height').value)
+        self.camera_fps = max(1, int(self.get_parameter('camera_fps').value))
+        self.camera_fourcc = str(self.get_parameter('camera_fourcc').value).upper()
+        self.target_repetitions = int(self.get_parameter('target_repetitions').value)
+
+        self.cv2 = self._import_required_module(
+            'cv2',
+            'No se pudo importar OpenCV. Instala la dependencia con: pip install opencv-python',
+        )
+        self.mp = self._import_required_module(
+            'mediapipe',
+            'No se pudo importar MediaPipe. Instala la dependencia con: pip install mediapipe',
+        )
+
+        self.pose_status_pub = self.create_publisher(String, '/a1an/pose_status', 10)
+        self.window_name = 'A1AN - Deteccion de pose humana'
+        self.exercise_names = [
+            'Elevacion de brazos',
+            'Flexion de codos',
+        ]
+        self.current_exercise_index = 0
+        self.repetitions_by_exercise = [0 for _ in self.exercise_names]
+        self.movement_was_active = False
+        self.exercise_status = {
+            'state': 'Preparacion',
+            'feedback': 'Colocate frente a la camara',
+            'detail': 'Mantente de pie y visible de cintura hacia arriba',
+            'color': (184, 178, 83),
+        }
+
+        self.cap, self.camera_index = self._open_camera(self.camera_index)
+
+        self.mp_pose = self.mp.solutions.pose
+        self.mp_drawing = self.mp.solutions.drawing_utils
+        self.mp_styles = self.mp.solutions.drawing_styles
+        self.pose = self.mp_pose.Pose(
+            static_image_mode=False,
+            model_complexity=self.model_complexity,
+            enable_segmentation=False,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+        )
+
+        self.timer = self.create_timer(1.0 / self.camera_fps, self.process_frame)
+        actual_width = int(self.cap.get(self.cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(self.cap.get(self.cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = self.cap.get(self.cv2.CAP_PROP_FPS)
+        self.get_logger().info(
+            'Webcam iniciada a '
+            f'{actual_width}x{actual_height}@{actual_fps:.1f}fps '
+            f'en indice {self.camera_index}. '
+            'Pulsa q en la ventana de OpenCV para cerrar.'
+        )
+
+    def _import_required_module(self, module_name, error_message):
+        try:
+            return importlib.import_module(module_name)
+        except ImportError as exc:
+            raise RuntimeError(error_message) from exc
+
+    def _as_bool(self, value):
+        if isinstance(value, bool):
+            return value
+        return str(value).lower() in ('1', 'true', 'yes', 'on')
+
+    def _open_camera(self, requested_index):
+        camera_indices = [requested_index]
+        if requested_index < 0:
+            camera_indices = list(range(10))
+
+        for camera_index in camera_indices:
+            for preferred_fourcc in self._camera_fourcc_candidates():
+                cap = self._create_capture(camera_index)
+                if not cap.isOpened():
+                    cap.release()
+                    continue
+
+                self._configure_capture(cap, preferred_fourcc)
+                if self._capture_has_frame(cap):
+                    self.camera_fourcc = preferred_fourcc or 'AUTO'
+                    self.get_logger().info(
+                        f'Webcam seleccionada: indice {camera_index}, '
+                        f'formato {self.camera_fourcc}'
+                    )
+                    return cap, camera_index
+
+                cap.release()
+
+        if requested_index < 0:
+            raise RuntimeError(
+                'No se encontro ninguna webcam disponible. En VirtualBox comprueba '
+                'Dispositivos > USB y que exista /dev/video0.'
+            )
+
+        raise RuntimeError(f'No se pudo abrir la webcam con indice {requested_index}')
+
+    def _create_capture(self, camera_index):
+        for backend in (self.cv2.CAP_V4L2, self.cv2.CAP_ANY):
+            cap = self.cv2.VideoCapture(camera_index, backend)
+            if cap.isOpened():
+                return cap
+            cap.release()
+        return self.cv2.VideoCapture(camera_index)
+
+    def _configure_capture(self, cap, preferred_fourcc):
+        if preferred_fourcc and len(preferred_fourcc) == 4:
+            fourcc = self.cv2.VideoWriter_fourcc(*preferred_fourcc)
+            cap.set(self.cv2.CAP_PROP_FOURCC, fourcc)
+        cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
+        cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
+        cap.set(self.cv2.CAP_PROP_FPS, self.camera_fps)
+        cap.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    def _camera_fourcc_candidates(self):
+        candidates = []
+        if self.camera_fourcc and self.camera_fourcc != 'AUTO':
+            candidates.append(self.camera_fourcc)
+        for fourcc in ('MJPG', 'YUYV', None):
+            if fourcc not in candidates:
+                candidates.append(fourcc)
+        return candidates
+
+    def _capture_has_frame(self, cap):
+        for _ in range(3):
+            ret, _ = cap.read()
+            if ret:
+                return True
+        return False
+
+    def process_frame(self):
+        ret, frame = self.cap.read()
+        if not ret:
+            self.get_logger().warning('No se pudo leer un frame de la webcam.')
+            return
+
+        if self.mirror_image:
+            frame = self.cv2.flip(frame, 1)
+
+        rgb_frame = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB)
+        rgb_frame.flags.writeable = False
+        results = self.pose.process(rgb_frame)
+        rgb_frame.flags.writeable = True
+
+        status_msg = String()
+        if results.pose_landmarks:
+            self.exercise_status = self._analyze_current_exercise(
+                results.pose_landmarks.landmark
+            )
+            self.mp_drawing.draw_landmarks(
+                frame,
+                results.pose_landmarks,
+                self.mp_pose.POSE_CONNECTIONS,
+                landmark_drawing_spec=self.mp_styles.get_default_pose_landmarks_style(),
+            )
+            visible_landmarks = sum(
+                1
+                for landmark in results.pose_landmarks.landmark
+                if landmark.visibility >= 0.5
+            )
+            status_msg.data = (
+                f"person_detected exercise={self.current_exercise_name} "
+                f"repetitions={self.current_repetitions} "
+                f"state={self.exercise_status['state']} "
+                f"feedback={self.exercise_status['feedback']} "
+                f"visible_landmarks={visible_landmarks}"
+            )
+        else:
+            status_msg.data = 'no_person_detected'
+            self.movement_was_active = False
+            visible_landmarks = 0
+            self.exercise_status = {
+                'state': 'Sin deteccion',
+                'feedback': 'No se detecta a la persona',
+                'detail': 'Colocate centrado y visible de cintura hacia arriba',
+                'color': (184, 178, 83),
+            }
+
+        self.pose_status_pub.publish(status_msg)
+        self._draw_rehab_overlay(frame, visible_landmarks)
+        self.cv2.imshow(self.window_name, frame)
+
+        key = self.cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            self.get_logger().info('Cierre solicitado desde la ventana de OpenCV.')
+            rclpy.shutdown()
+        elif key == ord('r'):
+            self.current_exercise_index = 0
+            self.repetitions_by_exercise = [0 for _ in self.exercise_names]
+            self.movement_was_active = False
+            self.get_logger().info('Contador de rehabilitacion reiniciado.')
+        elif key == ord('e'):
+            self.repetitions_by_exercise[self.current_exercise_index] = 0
+            self.movement_was_active = False
+            self.get_logger().info('Ejercicio actual reiniciado.')
+
+    @property
+    def current_exercise_name(self):
+        return self.exercise_names[self.current_exercise_index]
+
+    @property
+    def current_repetitions(self):
+        return self.repetitions_by_exercise[self.current_exercise_index]
+
+    def _analyze_current_exercise(self, landmarks):
+        if self.current_exercise_index == 0:
+            status = self._analyze_arm_raise(landmarks)
+        else:
+            status = self._analyze_elbow_flexion(landmarks)
+
+        if self.current_repetitions >= self.target_repetitions:
+            return self._complete_or_advance_exercise()
+
+        return status
+
+    def _complete_or_advance_exercise(self):
+        if self.current_exercise_index < len(self.exercise_names) - 1:
+            completed_name = self.current_exercise_name
+            self.current_exercise_index += 1
+            self.movement_was_active = False
+            return {
+                'state': 'Siguiente',
+                'feedback': 'Ejercicio completado',
+                'detail': f'{completed_name} finalizado. Comenzamos el siguiente',
+                'color': (129, 185, 16),
+            }
+
+        return {
+            'state': 'Completado',
+            'feedback': 'Rutina completada',
+            'detail': 'Objetivo alcanzado en todos los ejercicios',
+            'color': (129, 185, 16),
+        }
+
+    def _analyze_arm_raise(self, landmarks):
+        pose_landmark = self.mp_pose.PoseLandmark
+        required_landmarks = [
+            pose_landmark.LEFT_SHOULDER,
+            pose_landmark.RIGHT_SHOULDER,
+            pose_landmark.LEFT_ELBOW,
+            pose_landmark.RIGHT_ELBOW,
+            pose_landmark.LEFT_WRIST,
+            pose_landmark.RIGHT_WRIST,
+        ]
+
+        if not self._landmarks_are_visible(landmarks, required_landmarks):
+            return {
+                'state': 'Ajuste',
+                'feedback': 'Mejora la posicion',
+                'detail': 'Necesito ver hombros y manos para evaluar el movimiento',
+                'color': (184, 178, 83),
+            }
+
+        left_shoulder = landmarks[pose_landmark.LEFT_SHOULDER.value]
+        right_shoulder = landmarks[pose_landmark.RIGHT_SHOULDER.value]
+        left_elbow = landmarks[pose_landmark.LEFT_ELBOW.value]
+        right_elbow = landmarks[pose_landmark.RIGHT_ELBOW.value]
+        left_wrist = landmarks[pose_landmark.LEFT_WRIST.value]
+        right_wrist = landmarks[pose_landmark.RIGHT_WRIST.value]
+
+        shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
+        margin = 0.06
+        left_arm_up = left_wrist.y < shoulder_y - margin and left_elbow.y < shoulder_y + 0.04
+        right_arm_up = right_wrist.y < shoulder_y - margin and right_elbow.y < shoulder_y + 0.04
+        both_arms_up = left_arm_up and right_arm_up
+        both_arms_down = (
+            left_wrist.y > shoulder_y + margin
+            and right_wrist.y > shoulder_y + margin
+        )
+
+        if both_arms_up and not self.movement_was_active:
+            self.repetitions_by_exercise[self.current_exercise_index] += 1
+            self.movement_was_active = True
+            return {
+                'state': 'Correcto',
+                'feedback': 'Repeticion valida',
+                'detail': 'Buen rango de movimiento. Baja despacio',
+                'color': (129, 185, 16),
+            }
+        elif both_arms_up:
+            return {
+                'state': 'Control',
+                'feedback': 'Manteniendo posicion',
+                'detail': 'Mantente estable y evita movimientos bruscos',
+                'color': (129, 185, 16),
+            }
+        elif both_arms_down:
+            self.movement_was_active = False
+            return {
+                'state': 'Preparado',
+                'feedback': 'Listo para continuar',
+                'detail': 'Eleva ambos brazos hasta superar los hombros',
+                'color': (184, 178, 83),
+            }
+        elif left_arm_up and not right_arm_up:
+            return {
+                'state': 'Correccion',
+                'feedback': 'Solo hay un brazo elevado',
+                'detail': 'Sube el otro brazo para trabajar de forma simetrica',
+                'color': (11, 158, 245),
+            }
+        elif right_arm_up and not left_arm_up:
+            return {
+                'state': 'Correccion',
+                'feedback': 'Solo hay un brazo elevado',
+                'detail': 'Sube el otro brazo para trabajar de forma simetrica',
+                'color': (11, 158, 245),
+            }
+        else:
+            return {
+                'state': 'En progreso',
+                'feedback': 'Eleva ambos brazos',
+                'detail': 'Busca un movimiento lento, estable y completo',
+                'color': (184, 178, 83),
+            }
+
+    def _analyze_elbow_flexion(self, landmarks):
+        pose_landmark = self.mp_pose.PoseLandmark
+        required_landmarks = [
+            pose_landmark.LEFT_SHOULDER,
+            pose_landmark.RIGHT_SHOULDER,
+            pose_landmark.LEFT_ELBOW,
+            pose_landmark.RIGHT_ELBOW,
+            pose_landmark.LEFT_WRIST,
+            pose_landmark.RIGHT_WRIST,
+        ]
+
+        if not self._landmarks_are_visible(landmarks, required_landmarks):
+            return {
+                'state': 'Ajuste',
+                'feedback': 'Mejora la posicion',
+                'detail': 'Necesito ver hombros, codos y manos para evaluar la flexion',
+                'color': (184, 178, 83),
+            }
+
+        left_shoulder = landmarks[pose_landmark.LEFT_SHOULDER.value]
+        right_shoulder = landmarks[pose_landmark.RIGHT_SHOULDER.value]
+        left_elbow = landmarks[pose_landmark.LEFT_ELBOW.value]
+        right_elbow = landmarks[pose_landmark.RIGHT_ELBOW.value]
+        left_wrist = landmarks[pose_landmark.LEFT_WRIST.value]
+        right_wrist = landmarks[pose_landmark.RIGHT_WRIST.value]
+
+        shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
+        left_elbow_bent = left_wrist.y < left_elbow.y - 0.04
+        right_elbow_bent = right_wrist.y < right_elbow.y - 0.04
+        left_arm_ready = left_wrist.y > left_elbow.y + 0.05
+        right_arm_ready = right_wrist.y > right_elbow.y + 0.05
+        elbows_stable = (
+            left_elbow.y > shoulder_y - 0.04
+            and right_elbow.y > shoulder_y - 0.04
+        )
+        both_elbows_bent = left_elbow_bent and right_elbow_bent and elbows_stable
+        both_arms_ready = left_arm_ready and right_arm_ready and elbows_stable
+
+        if both_elbows_bent and not self.movement_was_active:
+            self.repetitions_by_exercise[self.current_exercise_index] += 1
+            self.movement_was_active = True
+            return {
+                'state': 'Correcto',
+                'feedback': 'Flexion valida',
+                'detail': 'Buen control de codos. Extiende despacio para repetir',
+                'color': (129, 185, 16),
+            }
+        elif both_elbows_bent:
+            return {
+                'state': 'Control',
+                'feedback': 'Manteniendo flexion',
+                'detail': 'Evita subir los hombros y controla la postura',
+                'color': (129, 185, 16),
+            }
+        elif both_arms_ready:
+            self.movement_was_active = False
+            return {
+                'state': 'Preparado',
+                'feedback': 'Listo para flexionar',
+                'detail': 'Dobla ambos codos llevando las manos hacia arriba',
+                'color': (184, 178, 83),
+            }
+        elif left_elbow_bent and not right_elbow_bent:
+            return {
+                'state': 'Correccion',
+                'feedback': 'Flexion incompleta',
+                'detail': 'Flexiona tambien el otro codo para mantener simetria',
+                'color': (11, 158, 245),
+            }
+        elif right_elbow_bent and not left_elbow_bent:
+            return {
+                'state': 'Correccion',
+                'feedback': 'Flexion incompleta',
+                'detail': 'Flexiona tambien el otro codo para mantener simetria',
+                'color': (11, 158, 245),
+            }
+
+        return {
+            'state': 'En progreso',
+            'feedback': 'Flexiona ambos codos',
+            'detail': 'Mantente centrado y realiza el movimiento de forma lenta',
+            'color': (184, 178, 83),
+        }
+
+    def _landmarks_are_visible(self, landmarks, required_landmarks):
+        return all(
+            landmarks[landmark.value].visibility >= 0.5
+            for landmark in required_landmarks
+        )
+
+    def _draw_rehab_overlay(self, frame, visible_landmarks):
+        if frame.shape[1] >= 900:
+            self._draw_rehab_sidebar(frame, visible_landmarks)
+            return
+
+        self._draw_rehab_compact_panel(frame, visible_landmarks)
+
+    def _draw_rehab_sidebar(self, frame, visible_landmarks):
+        status = self.exercise_status
+        frame_h, frame_w = frame.shape[:2]
+        panel_w = 360
+        panel_h = frame_h - 32
+        panel_x = frame_w - panel_w - 16
+        panel_y = 16
+
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, panel_x, panel_y, panel_w, panel_h, colors['bg'])
+        self.cv2.rectangle(
+            frame,
+            (panel_x, panel_y),
+            (panel_x + panel_w, panel_y + panel_h),
+            colors['border'],
+            1,
+        )
+
+        self._draw_filled_box(frame, panel_x, panel_y, panel_w, 92, colors['primary'])
+        self.cv2.putText(
+            frame,
+            'Safe&Sound Robotics',
+            (panel_x + 22, panel_y + 34),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.56,
+            colors['white'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            'A1AN Rehab',
+            (panel_x + 22, panel_y + 70),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.92,
+            colors['white'],
+            2,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            f'Ejercicio {self.current_exercise_index + 1}/{len(self.exercise_names)}',
+            (panel_x + 24, panel_y + 112),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.52,
+            colors['secondary'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+        card_x = panel_x + 22
+        card_w = panel_w - 44
+        reps_card_y = panel_y + 132
+        self._draw_card(frame, card_x, reps_card_y, card_w, 142)
+        self.cv2.putText(
+            frame,
+            'Progreso del ejercicio',
+            (card_x + 16, reps_card_y + 28),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            f'{self.current_repetitions}/{self.target_repetitions}',
+            (card_x + 16, reps_card_y + 76),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            1.18,
+            colors['primary'],
+            3,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            'repeticiones',
+            (card_x + 18, reps_card_y + 102),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.46,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self._draw_progress_bar(
+            frame,
+            card_x + 16,
+            reps_card_y + 116,
+            card_w - 32,
+            12,
+            self.current_repetitions / max(1, self.target_repetitions),
+            colors['accent'],
+        )
+
+        feedback_y = reps_card_y + 164
+        self._draw_card(frame, card_x, feedback_y, card_w, 172)
+        self.cv2.putText(
+            frame,
+            'Feedback',
+            (card_x + 16, feedback_y + 28),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self._put_wrapped_text(
+            frame,
+            status['feedback'],
+            card_x + 16,
+            feedback_y + 62,
+            card_w - 32,
+            0.6,
+            status['color'],
+            2,
+        )
+        self._put_wrapped_text(
+            frame,
+            status['detail'],
+            card_x + 16,
+            feedback_y + 108,
+            card_w - 32,
+            0.45,
+            colors['text'],
+            1,
+        )
+
+        metric_y = feedback_y + 194
+        self._draw_card(frame, card_x, metric_y, card_w, 112)
+        self.cv2.putText(
+            frame,
+            'Seguimiento',
+            (card_x + 16, metric_y + 28),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self._draw_metric(frame, card_x + 16, metric_y + 62, 'Puntos visibles', str(visible_landmarks))
+        self._draw_metric(frame, card_x + 164, metric_y + 62, 'Camara', f'{self.camera_fps} FPS')
+
+        footer_y = panel_y + panel_h - 70
+        self.cv2.line(
+            frame,
+            (panel_x + 22, footer_y - 16),
+            (panel_x + panel_w - 22, footer_y - 16),
+            colors['border'],
+            1,
+        )
+        self._draw_key_hint(frame, panel_x + 22, footer_y - 1, 'q', 'salir')
+        self._draw_key_hint(frame, panel_x + 140, footer_y - 1, 'r', 'reiniciar')
+        self._draw_key_hint(frame, panel_x + 22, footer_y + 30, 'e', 'ejercicio')
+        self._draw_mini_dot(frame, panel_x + 24, footer_y + 32, colors['accent'])
+        self.cv2.putText(
+            frame,
+            self.current_exercise_name,
+            (panel_x + 154, footer_y + 48),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            colors['secondary'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _draw_rehab_compact_panel(self, frame, visible_landmarks):
+        status = self.exercise_status
+        colors = self._brand_colors()
+        panel_x, panel_y = 12, 12
+        panel_w, panel_h = 610, 188
+        self._draw_filled_box(frame, panel_x, panel_y, panel_w, panel_h, colors['bg'])
+        self.cv2.rectangle(
+            frame,
+            (panel_x, panel_y),
+            (panel_x + panel_w, panel_y + panel_h),
+            colors['border'],
+            1,
+        )
+
+        self.cv2.putText(
+            frame,
+            'A1AN Rehab',
+            (panel_x + 18, panel_y + 34),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.85,
+            colors['primary'],
+            2,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            self.current_exercise_name,
+            (panel_x + 20, panel_y + 66),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.58,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+        self._draw_status_chip(frame, panel_x + panel_w - 178, panel_y + 18, status)
+
+        reps_text = f'{self.current_repetitions}/{self.target_repetitions} repeticiones'
+        self.cv2.putText(
+            frame,
+            reps_text,
+            (panel_x + 20, panel_y + 104),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.72,
+            colors['primary'],
+            2,
+            self.cv2.LINE_AA,
+        )
+        self._draw_progress_bar(
+            frame,
+            panel_x + 20,
+            panel_y + 120,
+            panel_w - 40,
+            14,
+            self.current_repetitions / max(1, self.target_repetitions),
+            colors['accent'],
+        )
+
+        self.cv2.putText(
+            frame,
+            status['feedback'],
+            (panel_x + 20, panel_y + 158),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.68,
+            status['color'],
+            2,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            status['detail'],
+            (panel_x + 20, panel_y + 181),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.47,
+            colors['text'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+        footer = f'Puntos visibles: {visible_landmarks}   q: salir   r: reiniciar'
+        self._draw_filled_box(frame, 12, frame.shape[0] - 42, 430, 30, colors['bg'])
+        self.cv2.putText(
+            frame,
+            footer,
+            (26, frame.shape[0] - 20),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _draw_status_chip(self, frame, x, y, status):
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x, y, 158, 34, colors['chip'])
+        self.cv2.rectangle(frame, (x, y), (x + 158, y + 34), colors['border'], 1)
+        self.cv2.circle(frame, (x + 19, y + 17), 6, status['color'], -1)
+        self.cv2.putText(
+            frame,
+            status['state'],
+            (x + 34, y + 23),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['primary'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _draw_progress_bar(self, frame, x, y, width, height, progress, color):
+        progress = max(0.0, min(1.0, progress))
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x, y, width, height, colors['border'])
+        fill_width = int(width * progress)
+        if fill_width > 0:
+            self._draw_filled_box(frame, x, y, fill_width, height, color)
+
+    def _draw_key_hint(self, frame, x, y, key, label):
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x, y, 28, 24, colors['accent'])
+        self.cv2.putText(
+            frame,
+            key,
+            (x + 8, y + 17),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['white'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            label,
+            (x + 38, y + 17),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _draw_filled_box(self, frame, x, y, width, height, color):
+        self.cv2.rectangle(frame, (x, y), (x + width, y + height), color, -1)
+
+    def _draw_card(self, frame, x, y, width, height):
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x + 2, y + 3, width, height, (222, 226, 232))
+        self._draw_filled_box(frame, x, y, width, height, colors['white'])
+        self.cv2.rectangle(frame, (x, y), (x + width, y + height), colors['border'], 1)
+
+    def _draw_metric(self, frame, x, y, label, value):
+        colors = self._brand_colors()
+        self.cv2.putText(
+            frame,
+            value,
+            (x, y),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.72,
+            colors['primary'],
+            2,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            label,
+            (x, y + 26),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.39,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _put_wrapped_text(self, frame, text, x, y, max_width, scale, color, thickness):
+        words = text.split()
+        line = ''
+        line_height = int(28 * scale) + 11
+        for word in words:
+            candidate = word if not line else f'{line} {word}'
+            size = self.cv2.getTextSize(
+                candidate,
+                self.cv2.FONT_HERSHEY_SIMPLEX,
+                scale,
+                thickness,
+            )[0]
+            if size[0] > max_width and line:
+                self.cv2.putText(
+                    frame,
+                    line,
+                    (x, y),
+                    self.cv2.FONT_HERSHEY_SIMPLEX,
+                    scale,
+                    color,
+                    thickness,
+                    self.cv2.LINE_AA,
+                )
+                y += line_height
+                line = word
+            else:
+                line = candidate
+        if line:
+            self.cv2.putText(
+                frame,
+                line,
+                (x, y),
+                self.cv2.FONT_HERSHEY_SIMPLEX,
+                scale,
+                color,
+                thickness,
+                self.cv2.LINE_AA,
+            )
+
+    def _brand_colors(self):
+        return {
+            'primary': (83, 50, 29),
+            'secondary': (146, 92, 42),
+            'accent': (184, 178, 83),
+            'white': (255, 255, 255),
+            'bg': (250, 247, 245),
+            'text': (55, 41, 31),
+            'gray': (128, 114, 107),
+            'border': (235, 231, 229),
+            'chip': (250, 243, 219),
+        }
+
+    def _draw_mini_dot(self, frame, x, y, color):
+        self.cv2.circle(frame, (x, y), 5, color, -1)
+
+    def destroy_node(self):
+        if hasattr(self, 'pose'):
+            self.pose.close()
+        if hasattr(self, 'cap'):
+            self.cap.release()
+        if hasattr(self, 'cv2'):
+            self.cv2.destroyAllWindows()
+        super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = None
+    try:
+        node = WebcamPoseNode()
+        rclpy.spin(node)
+    except ImportError as exc:
+        print(f'Error importando dependencia: {exc}')
+        print('Instala las dependencias con: pip install opencv-python mediapipe')
+    except RuntimeError as exc:
+        print(f'Error iniciando webcam_pose_node: {exc}')
+    finally:
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
