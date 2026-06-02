@@ -11,7 +11,8 @@ class WebcamDetector(Node):
     def __init__(self):
         super().__init__('webcam_detector')
 
-        model_path = '/home/santi/turtlebot3_ws/src/a1an/a1an/a1an_vision/model/best.pt'
+       
+        model_path = os.path.join(os.path.expanduser('~'), 'turtlebot3_ws', 'src', 'a1an', 'a1an', 'a1an_vision', 'model', 'best.pt')
         self.model = YOLO(model_path)
         self.publisher = self.create_publisher(String, '/a1an_vision/yolo_detections', 10)
 
