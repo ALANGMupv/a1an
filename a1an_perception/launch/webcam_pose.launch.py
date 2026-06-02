@@ -12,6 +12,7 @@ def generate_launch_description():
     frame_height = LaunchConfiguration('frame_height')
     camera_fps = LaunchConfiguration('camera_fps')
     camera_fourcc = LaunchConfiguration('camera_fourcc')
+    target_repetitions = LaunchConfiguration('target_repetitions')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -49,6 +50,11 @@ def generate_launch_description():
             default_value='MJPG',
             description='Requested OpenCV webcam FOURCC format, for example MJPG or YUYV.',
         ),
+        DeclareLaunchArgument(
+            'target_repetitions',
+            default_value='10',
+            description='Target repetitions for the rehabilitation exercise.',
+        ),
         Node(
             package='a1an_perception',
             executable='webcam_pose_node',
@@ -62,6 +68,7 @@ def generate_launch_description():
                 'frame_height': frame_height,
                 'camera_fps': camera_fps,
                 'camera_fourcc': camera_fourcc,
+                'target_repetitions': target_repetitions,
             }],
         ),
     ])

@@ -103,14 +103,20 @@ La ventana se puede cerrar pulsando `q`. Si la webcam principal no es la `0`, se
 ros2 launch a1an_perception webcam_pose.launch.py camera_index:=1
 ```
 
-En VirtualBox, si la imagen se ve inestable, se puede reducir la carga de la webcam:
+Por defecto, el launch usa una configuración estable para VirtualBox: `/dev/video0`, 640x480, 15 FPS, formato MJPG y complejidad
+1 de MediaPipe. Si se quiere indicar de forma explícita:
 ```bash
-ros2 launch a1an_perception webcam_pose.launch.py frame_width:=640 frame_height:=480 camera_fps:=15
+ros2 launch a1an_perception webcam_pose.launch.py camera_index:=0 frame_width:=640 frame_height:=480 camera_fps:=15 camera_fourcc:=MJPG model_complexity:=1
 ```
 
 Esta primera demo de rehabilitación analiza el ejercicio de elevación de brazos. La ventana muestra el esqueleto detectado,
 cuenta repeticiones cuando ambas muñecas suben por encima de los hombros y ofrece feedback básico si uno de los brazos no alcanza
-la altura esperada.
+la altura esperada. El objetivo por defecto es de 10 repeticiones y se puede reiniciar el contador pulsando `r`.
+
+Para una demo más corta:
+```bash
+ros2 launch a1an_perception webcam_pose.launch.py target_repetitions:=5
+```
 
 ---
 
