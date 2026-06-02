@@ -11,6 +11,7 @@ def generate_launch_description():
     frame_width = LaunchConfiguration('frame_width')
     frame_height = LaunchConfiguration('frame_height')
     camera_fps = LaunchConfiguration('camera_fps')
+    camera_fourcc = LaunchConfiguration('camera_fourcc')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -43,6 +44,11 @@ def generate_launch_description():
             default_value='15',
             description='Requested webcam frames per second.',
         ),
+        DeclareLaunchArgument(
+            'camera_fourcc',
+            default_value='MJPG',
+            description='Requested OpenCV webcam FOURCC format, for example MJPG or YUYV.',
+        ),
         Node(
             package='a1an_perception',
             executable='webcam_pose_node',
@@ -55,6 +61,7 @@ def generate_launch_description():
                 'frame_width': frame_width,
                 'frame_height': frame_height,
                 'camera_fps': camera_fps,
+                'camera_fourcc': camera_fourcc,
             }],
         ),
     ])

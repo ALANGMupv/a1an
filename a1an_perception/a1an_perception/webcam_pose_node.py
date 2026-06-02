@@ -19,6 +19,7 @@ class WebcamPoseNode(Node):
         self.declare_parameter('frame_width', 640)
         self.declare_parameter('frame_height', 480)
         self.declare_parameter('camera_fps', 15)
+        self.declare_parameter('camera_fourcc', 'MJPG')
 
         self.camera_index = int(self.get_parameter('camera_index').value)
         self.mirror_image = self._as_bool(self.get_parameter('mirror_image').value)
@@ -26,6 +27,7 @@ class WebcamPoseNode(Node):
         self.frame_width = int(self.get_parameter('frame_width').value)
         self.frame_height = int(self.get_parameter('frame_height').value)
         self.camera_fps = int(self.get_parameter('camera_fps').value)
+        self.camera_fourcc = str(self.get_parameter('camera_fourcc').value).upper()
 
         self.cv2 = self._import_required_module(
             'cv2',
@@ -43,13 +45,19 @@ class WebcamPoseNode(Node):
         self.arms_were_up = False
         self.last_feedback = 'Colocate frente a la camara'
 
-        self.cap = self.cv2.VideoCapture(self.camera_index)
+        self.cap = self.cv2.VideoCapture(self.camera_index, self.cv2.CAP_V4L2)
+        if not self.cap.isOpened():
+            self.cap = self.cv2.VideoCapture(self.camera_index)
         if not self.cap.isOpened():
             raise RuntimeError(f'No se pudo abrir la webcam con indice {self.camera_index}')
 
+        if len(self.camera_fourcc) == 4:
+            fourcc = self.cv2.VideoWriter_fourcc(*self.camera_fourcc)
+            self.cap.set(self.cv2.CAP_PROP_FOURCC, fourcc)
         self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
         self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
         self.cap.set(self.cv2.CAP_PROP_FPS, self.camera_fps)
+        self.cap.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
 
         self.mp_pose = self.mp.solutions.pose
         self.mp_drawing = self.mp.solutions.drawing_utils
@@ -65,7 +73,8 @@ class WebcamPoseNode(Node):
         self.timer = self.create_timer(1.0 / self.camera_fps, self.process_frame)
         self.get_logger().info(
             'Webcam iniciada a '
-            f'{self.frame_width}x{self.frame_height}@{self.camera_fps}fps. '
+            f'{self.frame_width}x{self.frame_height}@{self.camera_fps}fps '
+            f'({self.camera_fourcc}). '
             'Pulsa q en la ventana de OpenCV para cerrar.'
         )
 
