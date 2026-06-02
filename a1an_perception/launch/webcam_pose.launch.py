@@ -32,12 +32,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'frame_width',
-            default_value='640',
+            default_value='1024',
             description='Requested webcam frame width.',
         ),
         DeclareLaunchArgument(
             'frame_height',
-            default_value='480',
+            default_value='768',
             description='Requested webcam frame height.',
         ),
         DeclareLaunchArgument(
