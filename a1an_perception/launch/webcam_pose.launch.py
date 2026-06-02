@@ -8,6 +8,9 @@ def generate_launch_description():
     camera_index = LaunchConfiguration('camera_index')
     mirror_image = LaunchConfiguration('mirror_image')
     model_complexity = LaunchConfiguration('model_complexity')
+    frame_width = LaunchConfiguration('frame_width')
+    frame_height = LaunchConfiguration('frame_height')
+    camera_fps = LaunchConfiguration('camera_fps')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -25,6 +28,21 @@ def generate_launch_description():
             default_value='1',
             description='MediaPipe Pose model complexity: 0, 1, or 2.',
         ),
+        DeclareLaunchArgument(
+            'frame_width',
+            default_value='640',
+            description='Requested webcam frame width.',
+        ),
+        DeclareLaunchArgument(
+            'frame_height',
+            default_value='480',
+            description='Requested webcam frame height.',
+        ),
+        DeclareLaunchArgument(
+            'camera_fps',
+            default_value='15',
+            description='Requested webcam frames per second.',
+        ),
         Node(
             package='a1an_perception',
             executable='webcam_pose_node',
@@ -34,6 +52,9 @@ def generate_launch_description():
                 'camera_index': camera_index,
                 'mirror_image': mirror_image,
                 'model_complexity': model_complexity,
+                'frame_width': frame_width,
+                'frame_height': frame_height,
+                'camera_fps': camera_fps,
             }],
         ),
     ])

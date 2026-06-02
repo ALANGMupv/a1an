@@ -16,10 +16,16 @@ class WebcamPoseNode(Node):
         self.declare_parameter('camera_index', 0)
         self.declare_parameter('mirror_image', True)
         self.declare_parameter('model_complexity', 1)
+        self.declare_parameter('frame_width', 640)
+        self.declare_parameter('frame_height', 480)
+        self.declare_parameter('camera_fps', 15)
 
         self.camera_index = int(self.get_parameter('camera_index').value)
         self.mirror_image = self._as_bool(self.get_parameter('mirror_image').value)
         self.model_complexity = int(self.get_parameter('model_complexity').value)
+        self.frame_width = int(self.get_parameter('frame_width').value)
+        self.frame_height = int(self.get_parameter('frame_height').value)
+        self.camera_fps = int(self.get_parameter('camera_fps').value)
 
         self.cv2 = self._import_required_module(
             'cv2',
@@ -37,6 +43,10 @@ class WebcamPoseNode(Node):
         if not self.cap.isOpened():
             raise RuntimeError(f'No se pudo abrir la webcam con indice {self.camera_index}')
 
+        self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
+        self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
+        self.cap.set(self.cv2.CAP_PROP_FPS, self.camera_fps)
+
         self.mp_pose = self.mp.solutions.pose
         self.mp_drawing = self.mp.solutions.drawing_utils
         self.mp_styles = self.mp.solutions.drawing_styles
@@ -48,9 +58,11 @@ class WebcamPoseNode(Node):
             min_tracking_confidence=0.5,
         )
 
-        self.timer = self.create_timer(1.0 / 30.0, self.process_frame)
+        self.timer = self.create_timer(1.0 / self.camera_fps, self.process_frame)
         self.get_logger().info(
-            'Webcam iniciada. Pulsa q en la ventana de OpenCV para cerrar.'
+            'Webcam iniciada a '
+            f'{self.frame_width}x{self.frame_height}@{self.camera_fps}fps. '
+            'Pulsa q en la ventana de OpenCV para cerrar.'
         )
 
     def _import_required_module(self, module_name, error_message):

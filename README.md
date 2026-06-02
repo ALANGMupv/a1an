@@ -103,6 +103,11 @@ La ventana se puede cerrar pulsando `q`. Si la webcam principal no es la `0`, se
 ros2 launch a1an_perception webcam_pose.launch.py camera_index:=1
 ```
 
+En VirtualBox, si la imagen se ve inestable, se puede reducir la carga de la webcam:
+```bash
+ros2 launch a1an_perception webcam_pose.launch.py frame_width:=640 frame_height:=480 camera_fps:=15
+```
+
 ---
 
 ## Arquitectura del Sistema (Nodos y Comunicación)
