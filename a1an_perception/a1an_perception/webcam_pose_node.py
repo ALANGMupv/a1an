@@ -137,7 +137,7 @@ class WebcamPoseNode(Node):
             self.exercise_status = {
                 'state': 'Sin deteccion',
                 'feedback': 'No se detecta a la persona',
-                'detail': 'Entra en plano y mejora la iluminacion',
+                'detail': 'Colocate centrado y visible de cintura hacia arriba',
                 'color': (184, 178, 83),
             }
 
@@ -167,7 +167,7 @@ class WebcamPoseNode(Node):
             return {
                 'state': 'Ajuste',
                 'feedback': 'Mejora la posicion',
-                'detail': 'Acercate o mejora la iluminacion para ver hombros y manos',
+                'detail': 'Necesito ver hombros y manos para evaluar el movimiento',
                 'color': (184, 178, 83),
             }
 
@@ -192,7 +192,7 @@ class WebcamPoseNode(Node):
             return {
                 'state': 'Completado',
                 'feedback': 'Sesion completada',
-                'detail': 'Objetivo alcanzado. Pulsa r para reiniciar',
+                'detail': 'Objetivo alcanzado. Buen control del ejercicio',
                 'color': (129, 185, 16),
             }
 
@@ -202,43 +202,43 @@ class WebcamPoseNode(Node):
             return {
                 'state': 'Correcto',
                 'feedback': 'Repeticion valida',
-                'detail': 'Ambos brazos han superado la altura de los hombros',
+                'detail': 'Buen rango de movimiento. Baja despacio',
                 'color': (129, 185, 16),
             }
         elif both_arms_up:
             return {
                 'state': 'Control',
                 'feedback': 'Manteniendo posicion',
-                'detail': 'Mantente estable y baja de forma controlada',
+                'detail': 'Mantente estable y evita movimientos bruscos',
                 'color': (129, 185, 16),
             }
         elif both_arms_down:
             self.arms_were_up = False
             return {
                 'state': 'Preparado',
-                'feedback': 'Prepara la siguiente repeticion',
-                'detail': 'Eleva ambos brazos por encima de los hombros',
+                'feedback': 'Listo para continuar',
+                'detail': 'Eleva ambos brazos hasta superar los hombros',
                 'color': (184, 178, 83),
             }
         elif left_arm_up and not right_arm_up:
             return {
                 'state': 'Correccion',
                 'feedback': 'Solo hay un brazo elevado',
-                'detail': 'Sube tambien el otro brazo hasta la misma altura',
+                'detail': 'Sube el otro brazo para trabajar de forma simetrica',
                 'color': (11, 158, 245),
             }
         elif right_arm_up and not left_arm_up:
             return {
                 'state': 'Correccion',
                 'feedback': 'Solo hay un brazo elevado',
-                'detail': 'Sube tambien el otro brazo hasta la misma altura',
+                'detail': 'Sube el otro brazo para trabajar de forma simetrica',
                 'color': (11, 158, 245),
             }
         else:
             return {
                 'state': 'En progreso',
                 'feedback': 'Eleva ambos brazos',
-                'detail': 'Las dos munecas deben quedar por encima de los hombros',
+                'detail': 'Busca un movimiento lento, estable y completo',
                 'color': (184, 178, 83),
             }
 
@@ -295,11 +295,9 @@ class WebcamPoseNode(Node):
             self.cv2.LINE_AA,
         )
 
-        self._draw_status_chip(frame, panel_x + 22, panel_y + 116, status)
-
         card_x = panel_x + 22
         card_w = panel_w - 44
-        reps_card_y = panel_y + 160
+        reps_card_y = panel_y + 122
         self._draw_card(frame, card_x, reps_card_y, card_w, 142)
         self.cv2.putText(
             frame,
@@ -342,7 +340,7 @@ class WebcamPoseNode(Node):
         )
 
         feedback_y = reps_card_y + 164
-        self._draw_card(frame, card_x, feedback_y, card_w, 142)
+        self._draw_card(frame, card_x, feedback_y, card_w, 172)
         self.cv2.putText(
             frame,
             'Feedback',
@@ -359,7 +357,7 @@ class WebcamPoseNode(Node):
             card_x + 16,
             feedback_y + 62,
             card_w - 32,
-            0.66,
+            0.6,
             status['color'],
             2,
         )
@@ -367,14 +365,14 @@ class WebcamPoseNode(Node):
             frame,
             status['detail'],
             card_x + 16,
-            feedback_y + 96,
+            feedback_y + 108,
             card_w - 32,
             0.45,
             colors['text'],
             1,
         )
 
-        metric_y = feedback_y + 164
+        metric_y = feedback_y + 194
         self._draw_card(frame, card_x, metric_y, card_w, 112)
         self.cv2.putText(
             frame,
@@ -397,16 +395,8 @@ class WebcamPoseNode(Node):
             colors['border'],
             1,
         )
-        self.cv2.putText(
-            frame,
-            'q  salir        r  reiniciar',
-            (panel_x + 22, footer_y + 12),
-            self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.52,
-            colors['gray'],
-            1,
-            self.cv2.LINE_AA,
-        )
+        self._draw_key_hint(frame, panel_x + 22, footer_y - 1, 'q', 'salir')
+        self._draw_key_hint(frame, panel_x + 140, footer_y - 1, 'r', 'reiniciar')
         self._draw_mini_dot(frame, panel_x + 24, footer_y + 32, colors['accent'])
         self.cv2.putText(
             frame,
@@ -534,6 +524,30 @@ class WebcamPoseNode(Node):
         fill_width = int(width * progress)
         if fill_width > 0:
             self._draw_filled_box(frame, x, y, fill_width, height, color)
+
+    def _draw_key_hint(self, frame, x, y, key, label):
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x, y, 28, 24, colors['accent'])
+        self.cv2.putText(
+            frame,
+            key,
+            (x + 8, y + 17),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['white'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            label,
+            (x + 38, y + 17),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
 
     def _draw_filled_box(self, frame, x, y, width, height, color):
         self.cv2.rectangle(frame, (x, y), (x + width, y + height), color, -1)
