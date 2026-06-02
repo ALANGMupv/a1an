@@ -38,6 +38,10 @@ class WebcamPoseNode(Node):
 
         self.pose_status_pub = self.create_publisher(String, '/a1an/pose_status', 10)
         self.window_name = 'A1AN - Deteccion de pose humana'
+        self.exercise_name = 'Elevacion de brazos'
+        self.repetitions = 0
+        self.arms_were_up = False
+        self.last_feedback = 'Colocate frente a la camara'
 
         self.cap = self.cv2.VideoCapture(self.camera_index)
         if not self.cap.isOpened():
@@ -92,6 +96,7 @@ class WebcamPoseNode(Node):
 
         status_msg = String()
         if results.pose_landmarks:
+            exercise_feedback = self._analyze_arm_raise(results.pose_landmarks.landmark)
             self.mp_drawing.draw_landmarks(
                 frame,
                 results.pose_landmarks,
@@ -104,13 +109,23 @@ class WebcamPoseNode(Node):
                 if landmark.visibility >= 0.5
             )
             status_msg.data = f'person_detected visible_landmarks={visible_landmarks}'
-            overlay_text = f'Persona detectada - puntos visibles: {visible_landmarks}'
+            overlay_lines = [
+                f'Ejercicio: {self.exercise_name}',
+                f'Repeticiones: {self.repetitions}',
+                exercise_feedback,
+                f'Puntos visibles: {visible_landmarks}',
+            ]
         else:
             status_msg.data = 'no_person_detected'
-            overlay_text = 'Sin persona detectada'
+            self.arms_were_up = False
+            overlay_lines = [
+                f'Ejercicio: {self.exercise_name}',
+                f'Repeticiones: {self.repetitions}',
+                'Sin persona detectada',
+            ]
 
         self.pose_status_pub.publish(status_msg)
-        self._draw_overlay(frame, overlay_text)
+        self._draw_overlay(frame, overlay_lines)
         self.cv2.imshow(self.window_name, frame)
 
         key = self.cv2.waitKey(1) & 0xFF
@@ -118,18 +133,73 @@ class WebcamPoseNode(Node):
             self.get_logger().info('Cierre solicitado desde la ventana de OpenCV.')
             rclpy.shutdown()
 
-    def _draw_overlay(self, frame, text):
-        self.cv2.rectangle(frame, (8, 8), (470, 46), (20, 20, 20), -1)
-        self.cv2.putText(
-            frame,
-            text,
-            (18, 34),
-            self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            (80, 230, 120),
-            2,
-            self.cv2.LINE_AA,
+    def _analyze_arm_raise(self, landmarks):
+        pose_landmark = self.mp_pose.PoseLandmark
+        required_landmarks = [
+            pose_landmark.LEFT_SHOULDER,
+            pose_landmark.RIGHT_SHOULDER,
+            pose_landmark.LEFT_WRIST,
+            pose_landmark.RIGHT_WRIST,
+        ]
+
+        if not self._landmarks_are_visible(landmarks, required_landmarks):
+            self.last_feedback = 'Acercate o mejora la iluminacion'
+            return self.last_feedback
+
+        left_shoulder = landmarks[pose_landmark.LEFT_SHOULDER.value]
+        right_shoulder = landmarks[pose_landmark.RIGHT_SHOULDER.value]
+        left_wrist = landmarks[pose_landmark.LEFT_WRIST.value]
+        right_wrist = landmarks[pose_landmark.RIGHT_WRIST.value]
+
+        shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
+        margin = 0.06
+        left_arm_up = left_wrist.y < shoulder_y - margin
+        right_arm_up = right_wrist.y < shoulder_y - margin
+        both_arms_up = left_arm_up and right_arm_up
+        both_arms_down = (
+            left_wrist.y > shoulder_y + margin
+            and right_wrist.y > shoulder_y + margin
         )
+
+        if both_arms_up and not self.arms_were_up:
+            self.repetitions += 1
+            self.arms_were_up = True
+            self.last_feedback = 'Correcto: brazos elevados'
+        elif both_arms_up:
+            self.last_feedback = 'Manteniendo brazos arriba'
+        elif both_arms_down:
+            self.arms_were_up = False
+            self.last_feedback = 'Baja controlada, prepara la siguiente'
+        elif left_arm_up and not right_arm_up:
+            self.last_feedback = 'Sube mas el brazo derecho'
+        elif right_arm_up and not left_arm_up:
+            self.last_feedback = 'Sube mas el brazo izquierdo'
+        else:
+            self.last_feedback = 'Sube ambos brazos por encima de los hombros'
+
+        return self.last_feedback
+
+    def _landmarks_are_visible(self, landmarks, required_landmarks):
+        return all(
+            landmarks[landmark.value].visibility >= 0.5
+            for landmark in required_landmarks
+        )
+
+    def _draw_overlay(self, frame, lines):
+        panel_height = 30 + 28 * len(lines)
+        self.cv2.rectangle(frame, (8, 8), (560, panel_height), (20, 20, 20), -1)
+        for index, line in enumerate(lines):
+            color = (80, 230, 120) if index != 2 else (80, 210, 255)
+            self.cv2.putText(
+                frame,
+                line,
+                (18, 36 + index * 28),
+                self.cv2.FONT_HERSHEY_SIMPLEX,
+                0.65,
+                color,
+                2,
+                self.cv2.LINE_AA,
+            )
 
     def destroy_node(self):
         if hasattr(self, 'pose'):

@@ -108,6 +108,10 @@ En VirtualBox, si la imagen se ve inestable, se puede reducir la carga de la web
 ros2 launch a1an_perception webcam_pose.launch.py frame_width:=640 frame_height:=480 camera_fps:=15
 ```
 
+Esta primera demo de rehabilitación analiza el ejercicio de elevación de brazos. La ventana muestra el esqueleto detectado,
+cuenta repeticiones cuando ambas muñecas suben por encima de los hombros y ofrece feedback básico si uno de los brazos no alcanza
+la altura esperada.
+
 ---
 
 ## Arquitectura del Sistema (Nodos y Comunicación)
