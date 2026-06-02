@@ -92,3 +92,11 @@ gnome-terminal --title="CameraStream" -- bash -c "
   exec bash"
 
 echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg | Vision: http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg | Detecciones: /a1an_vision/detected_objects${NC}"
+
+# 8. YOLO webcam detector
+echo -e "${GREEN}[8/8] Lanzando YOLO detector...${NC}"
+gnome-terminal --title="YOLODetector" -- bash -c "
+  source /opt/ros/jazzy/setup.bash
+  source ~/turtlebot3_ws/install/setup.bash
+  ros2 run a1an_vision webcam_detector
+  exec bash"
