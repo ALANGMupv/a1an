@@ -49,7 +49,7 @@ class WebcamPoseNode(Node):
             'state': 'Preparacion',
             'feedback': 'Colocate frente a la camara',
             'detail': 'Mantente de pie y visible de cintura hacia arriba',
-            'color': (80, 210, 255),
+            'color': (184, 178, 83),
         }
 
         self.cap = self.cv2.VideoCapture(self.camera_index, self.cv2.CAP_V4L2)
@@ -138,7 +138,7 @@ class WebcamPoseNode(Node):
                 'state': 'Sin deteccion',
                 'feedback': 'No se detecta a la persona',
                 'detail': 'Entra en plano y mejora la iluminacion',
-                'color': (80, 210, 255),
+                'color': (184, 178, 83),
             }
 
         self.pose_status_pub.publish(status_msg)
@@ -168,7 +168,7 @@ class WebcamPoseNode(Node):
                 'state': 'Ajuste',
                 'feedback': 'Mejora la posicion',
                 'detail': 'Acercate o mejora la iluminacion para ver hombros y manos',
-                'color': (80, 210, 255),
+                'color': (184, 178, 83),
             }
 
         left_shoulder = landmarks[pose_landmark.LEFT_SHOULDER.value]
@@ -193,7 +193,7 @@ class WebcamPoseNode(Node):
                 'state': 'Completado',
                 'feedback': 'Sesion completada',
                 'detail': 'Objetivo alcanzado. Pulsa r para reiniciar',
-                'color': (95, 235, 140),
+                'color': (129, 185, 16),
             }
 
         if both_arms_up and not self.arms_were_up:
@@ -203,14 +203,14 @@ class WebcamPoseNode(Node):
                 'state': 'Correcto',
                 'feedback': 'Repeticion valida',
                 'detail': 'Ambos brazos han superado la altura de los hombros',
-                'color': (95, 235, 140),
+                'color': (129, 185, 16),
             }
         elif both_arms_up:
             return {
                 'state': 'Control',
                 'feedback': 'Manteniendo posicion',
                 'detail': 'Mantente estable y baja de forma controlada',
-                'color': (95, 235, 140),
+                'color': (129, 185, 16),
             }
         elif both_arms_down:
             self.arms_were_up = False
@@ -218,28 +218,28 @@ class WebcamPoseNode(Node):
                 'state': 'Preparado',
                 'feedback': 'Prepara la siguiente repeticion',
                 'detail': 'Eleva ambos brazos por encima de los hombros',
-                'color': (80, 210, 255),
+                'color': (184, 178, 83),
             }
         elif left_arm_up and not right_arm_up:
             return {
                 'state': 'Correccion',
                 'feedback': 'Solo hay un brazo elevado',
                 'detail': 'Sube tambien el otro brazo hasta la misma altura',
-                'color': (70, 170, 255),
+                'color': (11, 158, 245),
             }
         elif right_arm_up and not left_arm_up:
             return {
                 'state': 'Correccion',
                 'feedback': 'Solo hay un brazo elevado',
                 'detail': 'Sube tambien el otro brazo hasta la misma altura',
-                'color': (70, 170, 255),
+                'color': (11, 158, 245),
             }
         else:
             return {
                 'state': 'En progreso',
                 'feedback': 'Eleva ambos brazos',
                 'detail': 'Las dos munecas deben quedar por encima de los hombros',
-                'color': (80, 210, 255),
+                'color': (184, 178, 83),
             }
 
     def _landmarks_are_visible(self, landmarks, required_landmarks):
@@ -249,10 +249,188 @@ class WebcamPoseNode(Node):
         )
 
     def _draw_rehab_overlay(self, frame, visible_landmarks):
+        if frame.shape[1] >= 900:
+            self._draw_rehab_sidebar(frame, visible_landmarks)
+            return
+
+        self._draw_rehab_compact_panel(frame, visible_landmarks)
+
+    def _draw_rehab_sidebar(self, frame, visible_landmarks):
         status = self.exercise_status
+        frame_h, frame_w = frame.shape[:2]
+        panel_w = 344
+        panel_h = frame_h - 32
+        panel_x = frame_w - panel_w - 16
+        panel_y = 16
+
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, panel_x, panel_y, panel_w, panel_h, colors['bg'])
+        self.cv2.rectangle(
+            frame,
+            (panel_x, panel_y),
+            (panel_x + panel_w, panel_y + panel_h),
+            colors['border'],
+            1,
+        )
+
+        self._draw_filled_box(frame, panel_x, panel_y, panel_w, 92, colors['primary'])
+        self.cv2.putText(
+            frame,
+            'Safe&Sound Robotics',
+            (panel_x + 22, panel_y + 34),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.56,
+            colors['white'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            'A1AN Rehab',
+            (panel_x + 22, panel_y + 70),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.92,
+            colors['white'],
+            2,
+            self.cv2.LINE_AA,
+        )
+
+        self._draw_status_chip(frame, panel_x + 22, panel_y + 116, status)
+
+        card_x = panel_x + 22
+        card_w = panel_w - 44
+        reps_card_y = panel_y + 160
+        self._draw_card(frame, card_x, reps_card_y, card_w, 132)
+        self.cv2.putText(
+            frame,
+            'Progreso del ejercicio',
+            (card_x + 16, reps_card_y + 28),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            f'{self.repetitions}/{self.target_repetitions}',
+            (card_x + 16, reps_card_y + 76),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            1.35,
+            colors['primary'],
+            3,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            'repeticiones',
+            (card_x + 130, reps_card_y + 74),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self._draw_progress_bar(
+            frame,
+            card_x + 16,
+            reps_card_y + 98,
+            card_w - 32,
+            12,
+            self.repetitions / max(1, self.target_repetitions),
+            colors['accent'],
+        )
+
+        feedback_y = reps_card_y + 154
+        self._draw_card(frame, card_x, feedback_y, card_w, 142)
+        self.cv2.putText(
+            frame,
+            'Feedback',
+            (card_x + 16, feedback_y + 28),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self._put_wrapped_text(
+            frame,
+            status['feedback'],
+            card_x + 16,
+            feedback_y + 62,
+            card_w - 32,
+            0.66,
+            status['color'],
+            2,
+        )
+        self._put_wrapped_text(
+            frame,
+            status['detail'],
+            card_x + 16,
+            feedback_y + 96,
+            card_w - 32,
+            0.45,
+            colors['text'],
+            1,
+        )
+
+        metric_y = feedback_y + 164
+        self._draw_card(frame, card_x, metric_y, card_w, 112)
+        self.cv2.putText(
+            frame,
+            'Seguimiento',
+            (card_x + 16, metric_y + 28),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self._draw_metric(frame, card_x + 16, metric_y + 56, 'Puntos', str(visible_landmarks))
+        self._draw_metric(frame, card_x + 148, metric_y + 56, 'Camara', f'{self.camera_fps} FPS')
+
+        footer_y = panel_y + panel_h - 56
+        self.cv2.line(
+            frame,
+            (panel_x + 22, footer_y - 16),
+            (panel_x + panel_w - 22, footer_y - 16),
+            colors['border'],
+            1,
+        )
+        self.cv2.putText(
+            frame,
+            'q salir    r reiniciar',
+            (panel_x + 22, footer_y + 8),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            self.exercise_name,
+            (panel_x + 22, footer_y + 34),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.47,
+            colors['secondary'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _draw_rehab_compact_panel(self, frame, visible_landmarks):
+        status = self.exercise_status
+        colors = self._brand_colors()
         panel_x, panel_y = 12, 12
         panel_w, panel_h = 610, 188
-        self._draw_filled_box(frame, panel_x, panel_y, panel_w, panel_h, (18, 24, 31))
+        self._draw_filled_box(frame, panel_x, panel_y, panel_w, panel_h, colors['bg'])
+        self.cv2.rectangle(
+            frame,
+            (panel_x, panel_y),
+            (panel_x + panel_w, panel_y + panel_h),
+            colors['border'],
+            1,
+        )
 
         self.cv2.putText(
             frame,
@@ -260,7 +438,7 @@ class WebcamPoseNode(Node):
             (panel_x + 18, panel_y + 34),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.85,
-            (245, 245, 245),
+            colors['primary'],
             2,
             self.cv2.LINE_AA,
         )
@@ -270,7 +448,7 @@ class WebcamPoseNode(Node):
             (panel_x + 20, panel_y + 66),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.58,
-            (180, 190, 205),
+            colors['gray'],
             1,
             self.cv2.LINE_AA,
         )
@@ -284,7 +462,7 @@ class WebcamPoseNode(Node):
             (panel_x + 20, panel_y + 104),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.72,
-            (245, 245, 245),
+            colors['primary'],
             2,
             self.cv2.LINE_AA,
         )
@@ -295,7 +473,7 @@ class WebcamPoseNode(Node):
             panel_w - 40,
             14,
             self.repetitions / max(1, self.target_repetitions),
-            status['color'],
+            colors['accent'],
         )
 
         self.cv2.putText(
@@ -314,26 +492,28 @@ class WebcamPoseNode(Node):
             (panel_x + 20, panel_y + 181),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.47,
-            (205, 212, 222),
+            colors['text'],
             1,
             self.cv2.LINE_AA,
         )
 
         footer = f'Puntos visibles: {visible_landmarks}   q: salir   r: reiniciar'
-        self._draw_filled_box(frame, 12, frame.shape[0] - 42, 430, 30, (18, 24, 31))
+        self._draw_filled_box(frame, 12, frame.shape[0] - 42, 430, 30, colors['bg'])
         self.cv2.putText(
             frame,
             footer,
             (26, frame.shape[0] - 20),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.48,
-            (190, 200, 210),
+            colors['gray'],
             1,
             self.cv2.LINE_AA,
         )
 
     def _draw_status_chip(self, frame, x, y, status):
-        self._draw_filled_box(frame, x, y, 158, 34, (35, 43, 54))
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x, y, 158, 34, colors['chip'])
+        self.cv2.rectangle(frame, (x, y), (x + 158, y + 34), colors['border'], 1)
         self.cv2.circle(frame, (x + 19, y + 17), 6, status['color'], -1)
         self.cv2.putText(
             frame,
@@ -341,20 +521,102 @@ class WebcamPoseNode(Node):
             (x + 34, y + 23),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.48,
-            (235, 240, 245),
+            colors['primary'],
             1,
             self.cv2.LINE_AA,
         )
 
     def _draw_progress_bar(self, frame, x, y, width, height, progress, color):
         progress = max(0.0, min(1.0, progress))
-        self._draw_filled_box(frame, x, y, width, height, (48, 56, 68))
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x, y, width, height, colors['border'])
         fill_width = int(width * progress)
         if fill_width > 0:
             self._draw_filled_box(frame, x, y, fill_width, height, color)
 
     def _draw_filled_box(self, frame, x, y, width, height, color):
         self.cv2.rectangle(frame, (x, y), (x + width, y + height), color, -1)
+
+    def _draw_card(self, frame, x, y, width, height):
+        colors = self._brand_colors()
+        self._draw_filled_box(frame, x + 2, y + 3, width, height, (222, 226, 232))
+        self._draw_filled_box(frame, x, y, width, height, colors['white'])
+        self.cv2.rectangle(frame, (x, y), (x + width, y + height), colors['border'], 1)
+
+    def _draw_metric(self, frame, x, y, label, value):
+        colors = self._brand_colors()
+        self.cv2.putText(
+            frame,
+            value,
+            (x, y),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.72,
+            colors['primary'],
+            2,
+            self.cv2.LINE_AA,
+        )
+        self.cv2.putText(
+            frame,
+            label,
+            (x, y + 26),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.43,
+            colors['gray'],
+            1,
+            self.cv2.LINE_AA,
+        )
+
+    def _put_wrapped_text(self, frame, text, x, y, max_width, scale, color, thickness):
+        words = text.split()
+        line = ''
+        line_height = int(28 * scale) + 11
+        for word in words:
+            candidate = word if not line else f'{line} {word}'
+            size = self.cv2.getTextSize(
+                candidate,
+                self.cv2.FONT_HERSHEY_SIMPLEX,
+                scale,
+                thickness,
+            )[0]
+            if size[0] > max_width and line:
+                self.cv2.putText(
+                    frame,
+                    line,
+                    (x, y),
+                    self.cv2.FONT_HERSHEY_SIMPLEX,
+                    scale,
+                    color,
+                    thickness,
+                    self.cv2.LINE_AA,
+                )
+                y += line_height
+                line = word
+            else:
+                line = candidate
+        if line:
+            self.cv2.putText(
+                frame,
+                line,
+                (x, y),
+                self.cv2.FONT_HERSHEY_SIMPLEX,
+                scale,
+                color,
+                thickness,
+                self.cv2.LINE_AA,
+            )
+
+    def _brand_colors(self):
+        return {
+            'primary': (83, 50, 29),
+            'secondary': (146, 92, 42),
+            'accent': (184, 178, 83),
+            'white': (255, 255, 255),
+            'bg': (250, 247, 245),
+            'text': (55, 41, 31),
+            'gray': (128, 114, 107),
+            'border': (235, 231, 229),
+            'chip': (250, 243, 219),
+        }
 
     def destroy_node(self):
         if hasattr(self, 'pose'):
