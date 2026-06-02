@@ -44,7 +44,7 @@ class WebcamPoseNode(Node):
         self.window_name = 'A1AN - Deteccion de pose humana'
         self.exercise_names = [
             'Elevacion de brazos',
-            'Apertura lateral de brazos',
+            'Flexion de codos',
         ]
         self.current_exercise_index = 0
         self.repetitions_by_exercise = [0 for _ in self.exercise_names]
@@ -178,7 +178,7 @@ class WebcamPoseNode(Node):
         if self.current_exercise_index == 0:
             status = self._analyze_arm_raise(landmarks)
         else:
-            status = self._analyze_lateral_arm_opening(landmarks)
+            status = self._analyze_elbow_flexion(landmarks)
 
         if self.current_repetitions >= self.target_repetitions:
             return self._complete_or_advance_exercise()
@@ -286,7 +286,7 @@ class WebcamPoseNode(Node):
                 'color': (184, 178, 83),
             }
 
-    def _analyze_lateral_arm_opening(self, landmarks):
+    def _analyze_elbow_flexion(self, landmarks):
         pose_landmark = self.mp_pose.PoseLandmark
         required_landmarks = [
             pose_landmark.LEFT_SHOULDER,
@@ -301,7 +301,7 @@ class WebcamPoseNode(Node):
             return {
                 'state': 'Ajuste',
                 'feedback': 'Mejora la posicion',
-                'detail': 'Necesito ver hombros, codos y manos para evaluar la apertura',
+                'detail': 'Necesito ver hombros, codos y manos para evaluar la flexion',
                 'color': (184, 178, 83),
             }
 
@@ -313,77 +313,60 @@ class WebcamPoseNode(Node):
         right_wrist = landmarks[pose_landmark.RIGHT_WRIST.value]
 
         shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
-        shoulder_width = abs(right_shoulder.x - left_shoulder.x)
-        height_margin = 0.12
-        extension_margin = max(0.08, shoulder_width * 0.35)
+        left_elbow_bent = left_wrist.y < left_elbow.y - 0.04
+        right_elbow_bent = right_wrist.y < right_elbow.y - 0.04
+        left_arm_ready = left_wrist.y > left_elbow.y + 0.05
+        right_arm_ready = right_wrist.y > right_elbow.y + 0.05
+        elbows_stable = (
+            left_elbow.y > shoulder_y - 0.04
+            and right_elbow.y > shoulder_y - 0.04
+        )
+        both_elbows_bent = left_elbow_bent and right_elbow_bent and elbows_stable
+        both_arms_ready = left_arm_ready and right_arm_ready and elbows_stable
 
-        left_side = min(left_shoulder.x, right_shoulder.x)
-        right_side = max(left_shoulder.x, right_shoulder.x)
-        wrists = [left_wrist, right_wrist]
-        elbows = [left_elbow, right_elbow]
-        elbows_are_level = all(
-            abs(elbow.y - shoulder_y) < height_margin
-            for elbow in elbows
-        )
-        arm_open_on_left = any(
-            wrist.x < left_side - extension_margin
-            and abs(wrist.y - shoulder_y) < height_margin
-            for wrist in wrists
-        )
-        arm_open_on_right = any(
-            wrist.x > right_side + extension_margin
-            and abs(wrist.y - shoulder_y) < height_margin
-            for wrist in wrists
-        )
-        both_arms_open = arm_open_on_left and arm_open_on_right and elbows_are_level
-        arms_relaxed = (
-            left_wrist.y > shoulder_y + 0.12
-            and right_wrist.y > shoulder_y + 0.12
-        )
-
-        if both_arms_open and not self.movement_was_active:
+        if both_elbows_bent and not self.movement_was_active:
             self.repetitions_by_exercise[self.current_exercise_index] += 1
             self.movement_was_active = True
             return {
                 'state': 'Correcto',
-                'feedback': 'Apertura valida',
-                'detail': 'Brazos alineados y simetricos. Vuelve despacio al centro',
+                'feedback': 'Flexion valida',
+                'detail': 'Buen control de codos. Extiende despacio para repetir',
                 'color': (129, 185, 16),
             }
-        elif both_arms_open:
+        elif both_elbows_bent:
             return {
                 'state': 'Control',
-                'feedback': 'Manteniendo apertura',
-                'detail': 'Conserva los brazos a la altura de los hombros',
+                'feedback': 'Manteniendo flexion',
+                'detail': 'Evita subir los hombros y controla la postura',
                 'color': (129, 185, 16),
             }
-        elif arms_relaxed:
+        elif both_arms_ready:
             self.movement_was_active = False
             return {
                 'state': 'Preparado',
-                'feedback': 'Listo para abrir brazos',
-                'detail': 'Abre ambos brazos en cruz hasta la altura de los hombros',
+                'feedback': 'Listo para flexionar',
+                'detail': 'Dobla ambos codos llevando las manos hacia arriba',
                 'color': (184, 178, 83),
             }
-        elif arm_open_on_left and not arm_open_on_right:
+        elif left_elbow_bent and not right_elbow_bent:
             return {
                 'state': 'Correccion',
-                'feedback': 'Apertura incompleta',
-                'detail': 'Abre tambien el otro brazo para mantener simetria',
+                'feedback': 'Flexion incompleta',
+                'detail': 'Flexiona tambien el otro codo para mantener simetria',
                 'color': (11, 158, 245),
             }
-        elif arm_open_on_right and not arm_open_on_left:
+        elif right_elbow_bent and not left_elbow_bent:
             return {
                 'state': 'Correccion',
-                'feedback': 'Apertura incompleta',
-                'detail': 'Abre tambien el otro brazo para mantener simetria',
+                'feedback': 'Flexion incompleta',
+                'detail': 'Flexiona tambien el otro codo para mantener simetria',
                 'color': (11, 158, 245),
             }
 
         return {
             'state': 'En progreso',
-            'feedback': 'Abre ambos brazos',
-            'detail': 'Busca una linea horizontal suave a la altura de los hombros',
+            'feedback': 'Flexiona ambos codos',
+            'detail': 'Mantente centrado y realiza el movimiento de forma lenta',
             'color': (184, 178, 83),
         }
 
