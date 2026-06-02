@@ -13,7 +13,7 @@ class WebcamPoseNode(Node):
     def __init__(self):
         super().__init__('webcam_pose_node')
 
-        self.declare_parameter('camera_index', 0)
+        self.declare_parameter('camera_index', -1)
         self.declare_parameter('mirror_image', True)
         self.declare_parameter('model_complexity', 1)
         self.declare_parameter('frame_width', 640)
@@ -27,7 +27,7 @@ class WebcamPoseNode(Node):
         self.model_complexity = int(self.get_parameter('model_complexity').value)
         self.frame_width = int(self.get_parameter('frame_width').value)
         self.frame_height = int(self.get_parameter('frame_height').value)
-        self.camera_fps = int(self.get_parameter('camera_fps').value)
+        self.camera_fps = max(1, int(self.get_parameter('camera_fps').value))
         self.camera_fourcc = str(self.get_parameter('camera_fourcc').value).upper()
         self.target_repetitions = int(self.get_parameter('target_repetitions').value)
 
@@ -56,19 +56,7 @@ class WebcamPoseNode(Node):
             'color': (184, 178, 83),
         }
 
-        self.cap = self.cv2.VideoCapture(self.camera_index, self.cv2.CAP_V4L2)
-        if not self.cap.isOpened():
-            self.cap = self.cv2.VideoCapture(self.camera_index)
-        if not self.cap.isOpened():
-            raise RuntimeError(f'No se pudo abrir la webcam con indice {self.camera_index}')
-
-        if len(self.camera_fourcc) == 4:
-            fourcc = self.cv2.VideoWriter_fourcc(*self.camera_fourcc)
-            self.cap.set(self.cv2.CAP_PROP_FOURCC, fourcc)
-        self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
-        self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
-        self.cap.set(self.cv2.CAP_PROP_FPS, self.camera_fps)
-        self.cap.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.cap, self.camera_index = self._open_camera(self.camera_index)
 
         self.mp_pose = self.mp.solutions.pose
         self.mp_drawing = self.mp.solutions.drawing_utils
@@ -82,10 +70,13 @@ class WebcamPoseNode(Node):
         )
 
         self.timer = self.create_timer(1.0 / self.camera_fps, self.process_frame)
+        actual_width = int(self.cap.get(self.cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(self.cap.get(self.cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = self.cap.get(self.cv2.CAP_PROP_FPS)
         self.get_logger().info(
             'Webcam iniciada a '
-            f'{self.frame_width}x{self.frame_height}@{self.camera_fps}fps '
-            f'({self.camera_fourcc}). '
+            f'{actual_width}x{actual_height}@{actual_fps:.1f}fps '
+            f'en indice {self.camera_index}. '
             'Pulsa q en la ventana de OpenCV para cerrar.'
         )
 
@@ -99,6 +90,70 @@ class WebcamPoseNode(Node):
         if isinstance(value, bool):
             return value
         return str(value).lower() in ('1', 'true', 'yes', 'on')
+
+    def _open_camera(self, requested_index):
+        camera_indices = [requested_index]
+        if requested_index < 0:
+            camera_indices = list(range(10))
+
+        for camera_index in camera_indices:
+            for preferred_fourcc in self._camera_fourcc_candidates():
+                cap = self._create_capture(camera_index)
+                if not cap.isOpened():
+                    cap.release()
+                    continue
+
+                self._configure_capture(cap, preferred_fourcc)
+                if self._capture_has_frame(cap):
+                    self.camera_fourcc = preferred_fourcc or 'AUTO'
+                    self.get_logger().info(
+                        f'Webcam seleccionada: indice {camera_index}, '
+                        f'formato {self.camera_fourcc}'
+                    )
+                    return cap, camera_index
+
+                cap.release()
+
+        if requested_index < 0:
+            raise RuntimeError(
+                'No se encontro ninguna webcam disponible. En VirtualBox comprueba '
+                'Dispositivos > USB y que exista /dev/video0.'
+            )
+
+        raise RuntimeError(f'No se pudo abrir la webcam con indice {requested_index}')
+
+    def _create_capture(self, camera_index):
+        for backend in (self.cv2.CAP_V4L2, self.cv2.CAP_ANY):
+            cap = self.cv2.VideoCapture(camera_index, backend)
+            if cap.isOpened():
+                return cap
+            cap.release()
+        return self.cv2.VideoCapture(camera_index)
+
+    def _configure_capture(self, cap, preferred_fourcc):
+        if preferred_fourcc and len(preferred_fourcc) == 4:
+            fourcc = self.cv2.VideoWriter_fourcc(*preferred_fourcc)
+            cap.set(self.cv2.CAP_PROP_FOURCC, fourcc)
+        cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
+        cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
+        cap.set(self.cv2.CAP_PROP_FPS, self.camera_fps)
+        cap.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    def _camera_fourcc_candidates(self):
+        candidates = []
+        if self.camera_fourcc and self.camera_fourcc != 'AUTO':
+            candidates.append(self.camera_fourcc)
+        for fourcc in ('MJPG', 'YUYV', None):
+            if fourcc not in candidates:
+                candidates.append(fourcc)
+        return candidates
+
+    def _capture_has_frame(self, cap):
+        for _ in range(3):
+            ret, _ = cap.read()
+            if ret:
+                return True
+        return False
 
     def process_frame(self):
         ret, frame = self.cap.read()

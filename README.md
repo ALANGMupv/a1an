@@ -58,7 +58,26 @@ source install/setup.bash
 
 ## Ejecución
 
-Para lanzar la simulación completa (Mundo, Localización y Navegación), es necesario abrir 3 terminales y ejecutar los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
+Para lanzar la simulación completa (Mundo, Localización, Navegación y Rehabilitación), usa el launch general:
+
+```bash
+ros2 launch a1an a1an_full.launch.py
+```
+
+Este launch inicia mundo, localización, navegación y la ventana de rehabilitación con webcam. La cámara se autodetecta por
+defecto; si es necesario, se puede forzar un índice concreto:
+
+```bash
+ros2 launch a1an a1an_full.launch.py camera_index:=0
+```
+
+Para lanzar todo sin la ventana de rehabilitación:
+
+```bash
+ros2 launch a1an a1an_full.launch.py launch_perception:=false
+```
+
+También se puede lanzar manualmente por terminales:
 
 **Terminal 1 (Mundo Gazebo):**
 ```bash
@@ -98,15 +117,16 @@ source install/setup.bash
 ros2 launch a1an_perception webcam_pose.launch.py
 ```
 
-La ventana se puede cerrar pulsando `q`. Si la webcam principal no es la `0`, se puede indicar otro índice:
+La ventana se puede cerrar pulsando `q`. Por defecto el nodo busca automáticamente una webcam disponible. Si se quiere forzar una
+cámara concreta, se puede indicar su índice:
 ```bash
 ros2 launch a1an_perception webcam_pose.launch.py camera_index:=1
 ```
 
-Por defecto, el launch usa una configuración estable para VirtualBox: `/dev/video0`, 640x480, 15 FPS, formato MJPG y complejidad
-1 de MediaPipe. Si se quiere indicar de forma explícita:
+Por defecto, el launch usa una configuración estable para Ubuntu nativo y VirtualBox: detección automática de cámara, 640x480,
+15 FPS, formato MJPG con fallback a otros formatos y complejidad 1 de MediaPipe. Si se quiere indicar de forma explícita:
 ```bash
-ros2 launch a1an_perception webcam_pose.launch.py camera_index:=0 frame_width:=640 frame_height:=480 camera_fps:=15 camera_fourcc:=MJPG model_complexity:=1
+ros2 launch a1an_perception webcam_pose.launch.py camera_index:=-1 frame_width:=640 frame_height:=480 camera_fps:=15 camera_fourcc:=MJPG model_complexity:=1
 ```
 
 Esta primera demo de rehabilitación analiza una rutina de dos ejercicios: elevación de brazos y flexión de codos. La
