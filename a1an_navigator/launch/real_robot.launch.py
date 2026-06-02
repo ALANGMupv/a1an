@@ -19,7 +19,7 @@ def generate_launch_description():
     localization_pkg = get_package_share_directory('a1an_localization')
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
 
-    nav2_yaml = os.path.join(localization_pkg, 'param', 'burger.yaml')
+    nav2_yaml = os.path.join(localization_pkg, 'config', 'burger.yaml')
     default_map = os.path.join(localization_pkg, 'map', 'my_map.yaml')
     rviz_config = os.path.join(localization_pkg, 'rviz', 'tb3_navigation2.rviz')
 
