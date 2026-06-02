@@ -109,9 +109,10 @@ Por defecto, el launch usa una configuración estable para VirtualBox: `/dev/vid
 ros2 launch a1an_perception webcam_pose.launch.py camera_index:=0 frame_width:=640 frame_height:=480 camera_fps:=15 camera_fourcc:=MJPG model_complexity:=1
 ```
 
-Esta primera demo de rehabilitación analiza el ejercicio de elevación de brazos. La ventana muestra el esqueleto detectado,
-cuenta repeticiones cuando ambas muñecas suben por encima de los hombros y ofrece feedback básico si uno de los brazos no alcanza
-la altura esperada. El objetivo por defecto es de 10 repeticiones y se puede reiniciar el contador pulsando `r`.
+Esta primera demo de rehabilitación analiza una rutina de dos ejercicios: elevación de brazos y apertura lateral de brazos. La
+ventana muestra el esqueleto detectado, cuenta repeticiones y ofrece feedback básico si el movimiento no es simétrico o no alcanza
+la posición esperada. El objetivo por defecto es de 10 repeticiones por ejercicio; al completar el primero, el sistema pasa
+automáticamente al segundo. El ejercicio actual se puede reiniciar pulsando `e`, y la rutina completa pulsando `r`.
 
 Para una demo más corta:
 ```bash

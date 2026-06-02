@@ -42,9 +42,13 @@ class WebcamPoseNode(Node):
 
         self.pose_status_pub = self.create_publisher(String, '/a1an/pose_status', 10)
         self.window_name = 'A1AN - Deteccion de pose humana'
-        self.exercise_name = 'Elevacion de brazos'
-        self.repetitions = 0
-        self.arms_were_up = False
+        self.exercise_names = [
+            'Elevacion de brazos',
+            'Apertura lateral de brazos',
+        ]
+        self.current_exercise_index = 0
+        self.repetitions_by_exercise = [0 for _ in self.exercise_names]
+        self.movement_was_active = False
         self.exercise_status = {
             'state': 'Preparacion',
             'feedback': 'Colocate frente a la camara',
@@ -112,7 +116,9 @@ class WebcamPoseNode(Node):
 
         status_msg = String()
         if results.pose_landmarks:
-            self.exercise_status = self._analyze_arm_raise(results.pose_landmarks.landmark)
+            self.exercise_status = self._analyze_current_exercise(
+                results.pose_landmarks.landmark
+            )
             self.mp_drawing.draw_landmarks(
                 frame,
                 results.pose_landmarks,
@@ -125,14 +131,15 @@ class WebcamPoseNode(Node):
                 if landmark.visibility >= 0.5
             )
             status_msg.data = (
-                f"person_detected repetitions={self.repetitions} "
+                f"person_detected exercise={self.current_exercise_name} "
+                f"repetitions={self.current_repetitions} "
                 f"state={self.exercise_status['state']} "
                 f"feedback={self.exercise_status['feedback']} "
                 f"visible_landmarks={visible_landmarks}"
             )
         else:
             status_msg.data = 'no_person_detected'
-            self.arms_were_up = False
+            self.movement_was_active = False
             visible_landmarks = 0
             self.exercise_status = {
                 'state': 'Sin deteccion',
@@ -150,15 +157,60 @@ class WebcamPoseNode(Node):
             self.get_logger().info('Cierre solicitado desde la ventana de OpenCV.')
             rclpy.shutdown()
         elif key == ord('r'):
-            self.repetitions = 0
-            self.arms_were_up = False
+            self.current_exercise_index = 0
+            self.repetitions_by_exercise = [0 for _ in self.exercise_names]
+            self.movement_was_active = False
             self.get_logger().info('Contador de rehabilitacion reiniciado.')
+        elif key == ord('e'):
+            self.repetitions_by_exercise[self.current_exercise_index] = 0
+            self.movement_was_active = False
+            self.get_logger().info('Ejercicio actual reiniciado.')
+
+    @property
+    def current_exercise_name(self):
+        return self.exercise_names[self.current_exercise_index]
+
+    @property
+    def current_repetitions(self):
+        return self.repetitions_by_exercise[self.current_exercise_index]
+
+    def _analyze_current_exercise(self, landmarks):
+        if self.current_exercise_index == 0:
+            status = self._analyze_arm_raise(landmarks)
+        else:
+            status = self._analyze_lateral_arm_opening(landmarks)
+
+        if self.current_repetitions >= self.target_repetitions:
+            return self._complete_or_advance_exercise()
+
+        return status
+
+    def _complete_or_advance_exercise(self):
+        if self.current_exercise_index < len(self.exercise_names) - 1:
+            completed_name = self.current_exercise_name
+            self.current_exercise_index += 1
+            self.movement_was_active = False
+            return {
+                'state': 'Siguiente',
+                'feedback': 'Ejercicio completado',
+                'detail': f'{completed_name} finalizado. Comenzamos el siguiente',
+                'color': (129, 185, 16),
+            }
+
+        return {
+            'state': 'Completado',
+            'feedback': 'Rutina completada',
+            'detail': 'Objetivo alcanzado en todos los ejercicios',
+            'color': (129, 185, 16),
+        }
 
     def _analyze_arm_raise(self, landmarks):
         pose_landmark = self.mp_pose.PoseLandmark
         required_landmarks = [
             pose_landmark.LEFT_SHOULDER,
             pose_landmark.RIGHT_SHOULDER,
+            pose_landmark.LEFT_ELBOW,
+            pose_landmark.RIGHT_ELBOW,
             pose_landmark.LEFT_WRIST,
             pose_landmark.RIGHT_WRIST,
         ]
@@ -173,32 +225,24 @@ class WebcamPoseNode(Node):
 
         left_shoulder = landmarks[pose_landmark.LEFT_SHOULDER.value]
         right_shoulder = landmarks[pose_landmark.RIGHT_SHOULDER.value]
+        left_elbow = landmarks[pose_landmark.LEFT_ELBOW.value]
+        right_elbow = landmarks[pose_landmark.RIGHT_ELBOW.value]
         left_wrist = landmarks[pose_landmark.LEFT_WRIST.value]
         right_wrist = landmarks[pose_landmark.RIGHT_WRIST.value]
 
         shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
         margin = 0.06
-        left_arm_up = left_wrist.y < shoulder_y - margin
-        right_arm_up = right_wrist.y < shoulder_y - margin
+        left_arm_up = left_wrist.y < shoulder_y - margin and left_elbow.y < shoulder_y + 0.04
+        right_arm_up = right_wrist.y < shoulder_y - margin and right_elbow.y < shoulder_y + 0.04
         both_arms_up = left_arm_up and right_arm_up
         both_arms_down = (
             left_wrist.y > shoulder_y + margin
             and right_wrist.y > shoulder_y + margin
         )
 
-        if self.repetitions >= self.target_repetitions:
-            if both_arms_down:
-                self.arms_were_up = False
-            return {
-                'state': 'Completado',
-                'feedback': 'Sesion completada',
-                'detail': 'Objetivo alcanzado. Buen control del ejercicio',
-                'color': (129, 185, 16),
-            }
-
-        if both_arms_up and not self.arms_were_up:
-            self.repetitions += 1
-            self.arms_were_up = True
+        if both_arms_up and not self.movement_was_active:
+            self.repetitions_by_exercise[self.current_exercise_index] += 1
+            self.movement_was_active = True
             return {
                 'state': 'Correcto',
                 'feedback': 'Repeticion valida',
@@ -213,7 +257,7 @@ class WebcamPoseNode(Node):
                 'color': (129, 185, 16),
             }
         elif both_arms_down:
-            self.arms_were_up = False
+            self.movement_was_active = False
             return {
                 'state': 'Preparado',
                 'feedback': 'Listo para continuar',
@@ -241,6 +285,107 @@ class WebcamPoseNode(Node):
                 'detail': 'Busca un movimiento lento, estable y completo',
                 'color': (184, 178, 83),
             }
+
+    def _analyze_lateral_arm_opening(self, landmarks):
+        pose_landmark = self.mp_pose.PoseLandmark
+        required_landmarks = [
+            pose_landmark.LEFT_SHOULDER,
+            pose_landmark.RIGHT_SHOULDER,
+            pose_landmark.LEFT_ELBOW,
+            pose_landmark.RIGHT_ELBOW,
+            pose_landmark.LEFT_WRIST,
+            pose_landmark.RIGHT_WRIST,
+        ]
+
+        if not self._landmarks_are_visible(landmarks, required_landmarks):
+            return {
+                'state': 'Ajuste',
+                'feedback': 'Mejora la posicion',
+                'detail': 'Necesito ver hombros, codos y manos para evaluar la apertura',
+                'color': (184, 178, 83),
+            }
+
+        left_shoulder = landmarks[pose_landmark.LEFT_SHOULDER.value]
+        right_shoulder = landmarks[pose_landmark.RIGHT_SHOULDER.value]
+        left_elbow = landmarks[pose_landmark.LEFT_ELBOW.value]
+        right_elbow = landmarks[pose_landmark.RIGHT_ELBOW.value]
+        left_wrist = landmarks[pose_landmark.LEFT_WRIST.value]
+        right_wrist = landmarks[pose_landmark.RIGHT_WRIST.value]
+
+        shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
+        shoulder_width = abs(right_shoulder.x - left_shoulder.x)
+        height_margin = 0.12
+        extension_margin = max(0.08, shoulder_width * 0.35)
+
+        left_side = min(left_shoulder.x, right_shoulder.x)
+        right_side = max(left_shoulder.x, right_shoulder.x)
+        wrists = [left_wrist, right_wrist]
+        elbows = [left_elbow, right_elbow]
+        elbows_are_level = all(
+            abs(elbow.y - shoulder_y) < height_margin
+            for elbow in elbows
+        )
+        arm_open_on_left = any(
+            wrist.x < left_side - extension_margin
+            and abs(wrist.y - shoulder_y) < height_margin
+            for wrist in wrists
+        )
+        arm_open_on_right = any(
+            wrist.x > right_side + extension_margin
+            and abs(wrist.y - shoulder_y) < height_margin
+            for wrist in wrists
+        )
+        both_arms_open = arm_open_on_left and arm_open_on_right and elbows_are_level
+        arms_relaxed = (
+            left_wrist.y > shoulder_y + 0.12
+            and right_wrist.y > shoulder_y + 0.12
+        )
+
+        if both_arms_open and not self.movement_was_active:
+            self.repetitions_by_exercise[self.current_exercise_index] += 1
+            self.movement_was_active = True
+            return {
+                'state': 'Correcto',
+                'feedback': 'Apertura valida',
+                'detail': 'Brazos alineados y simetricos. Vuelve despacio al centro',
+                'color': (129, 185, 16),
+            }
+        elif both_arms_open:
+            return {
+                'state': 'Control',
+                'feedback': 'Manteniendo apertura',
+                'detail': 'Conserva los brazos a la altura de los hombros',
+                'color': (129, 185, 16),
+            }
+        elif arms_relaxed:
+            self.movement_was_active = False
+            return {
+                'state': 'Preparado',
+                'feedback': 'Listo para abrir brazos',
+                'detail': 'Abre ambos brazos en cruz hasta la altura de los hombros',
+                'color': (184, 178, 83),
+            }
+        elif arm_open_on_left and not arm_open_on_right:
+            return {
+                'state': 'Correccion',
+                'feedback': 'Apertura incompleta',
+                'detail': 'Abre tambien el otro brazo para mantener simetria',
+                'color': (11, 158, 245),
+            }
+        elif arm_open_on_right and not arm_open_on_left:
+            return {
+                'state': 'Correccion',
+                'feedback': 'Apertura incompleta',
+                'detail': 'Abre tambien el otro brazo para mantener simetria',
+                'color': (11, 158, 245),
+            }
+
+        return {
+            'state': 'En progreso',
+            'feedback': 'Abre ambos brazos',
+            'detail': 'Busca una linea horizontal suave a la altura de los hombros',
+            'color': (184, 178, 83),
+        }
 
     def _landmarks_are_visible(self, landmarks, required_landmarks):
         return all(
@@ -294,10 +439,20 @@ class WebcamPoseNode(Node):
             2,
             self.cv2.LINE_AA,
         )
+        self.cv2.putText(
+            frame,
+            f'Ejercicio {self.current_exercise_index + 1}/{len(self.exercise_names)}',
+            (panel_x + 24, panel_y + 112),
+            self.cv2.FONT_HERSHEY_SIMPLEX,
+            0.52,
+            colors['secondary'],
+            1,
+            self.cv2.LINE_AA,
+        )
 
         card_x = panel_x + 22
         card_w = panel_w - 44
-        reps_card_y = panel_y + 122
+        reps_card_y = panel_y + 132
         self._draw_card(frame, card_x, reps_card_y, card_w, 142)
         self.cv2.putText(
             frame,
@@ -311,7 +466,7 @@ class WebcamPoseNode(Node):
         )
         self.cv2.putText(
             frame,
-            f'{self.repetitions}/{self.target_repetitions}',
+            f'{self.current_repetitions}/{self.target_repetitions}',
             (card_x + 16, reps_card_y + 76),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             1.18,
@@ -335,7 +490,7 @@ class WebcamPoseNode(Node):
             reps_card_y + 116,
             card_w - 32,
             12,
-            self.repetitions / max(1, self.target_repetitions),
+            self.current_repetitions / max(1, self.target_repetitions),
             colors['accent'],
         )
 
@@ -397,13 +552,14 @@ class WebcamPoseNode(Node):
         )
         self._draw_key_hint(frame, panel_x + 22, footer_y - 1, 'q', 'salir')
         self._draw_key_hint(frame, panel_x + 140, footer_y - 1, 'r', 'reiniciar')
+        self._draw_key_hint(frame, panel_x + 22, footer_y + 30, 'e', 'ejercicio')
         self._draw_mini_dot(frame, panel_x + 24, footer_y + 32, colors['accent'])
         self.cv2.putText(
             frame,
-            self.exercise_name,
-            (panel_x + 40, footer_y + 38),
+            self.current_exercise_name,
+            (panel_x + 154, footer_y + 48),
             self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
+            0.45,
             colors['secondary'],
             1,
             self.cv2.LINE_AA,
@@ -435,7 +591,7 @@ class WebcamPoseNode(Node):
         )
         self.cv2.putText(
             frame,
-            self.exercise_name,
+            self.current_exercise_name,
             (panel_x + 20, panel_y + 66),
             self.cv2.FONT_HERSHEY_SIMPLEX,
             0.58,
@@ -446,7 +602,7 @@ class WebcamPoseNode(Node):
 
         self._draw_status_chip(frame, panel_x + panel_w - 178, panel_y + 18, status)
 
-        reps_text = f'{self.repetitions}/{self.target_repetitions} repeticiones'
+        reps_text = f'{self.current_repetitions}/{self.target_repetitions} repeticiones'
         self.cv2.putText(
             frame,
             reps_text,
@@ -463,7 +619,7 @@ class WebcamPoseNode(Node):
             panel_y + 120,
             panel_w - 40,
             14,
-            self.repetitions / max(1, self.target_repetitions),
+            self.current_repetitions / max(1, self.target_repetitions),
             colors['accent'],
         )
 
