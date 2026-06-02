@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             'camera_viewer = a1an_vision.camera_viewer:main',
             'assistive_object_detector = a1an_vision.assistive_object_detector:main',
+	    'webcam_detector = a1an_vision.webcam_detector:main',
         ],
     },
 )
