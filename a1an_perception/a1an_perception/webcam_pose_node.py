@@ -258,7 +258,7 @@ class WebcamPoseNode(Node):
     def _draw_rehab_sidebar(self, frame, visible_landmarks):
         status = self.exercise_status
         frame_h, frame_w = frame.shape[:2]
-        panel_w = 344
+        panel_w = 360
         panel_h = frame_h - 32
         panel_x = frame_w - panel_w - 16
         panel_y = 16
@@ -300,7 +300,7 @@ class WebcamPoseNode(Node):
         card_x = panel_x + 22
         card_w = panel_w - 44
         reps_card_y = panel_y + 160
-        self._draw_card(frame, card_x, reps_card_y, card_w, 132)
+        self._draw_card(frame, card_x, reps_card_y, card_w, 142)
         self.cv2.putText(
             frame,
             'Progreso del ejercicio',
@@ -316,7 +316,7 @@ class WebcamPoseNode(Node):
             f'{self.repetitions}/{self.target_repetitions}',
             (card_x + 16, reps_card_y + 76),
             self.cv2.FONT_HERSHEY_SIMPLEX,
-            1.35,
+            1.18,
             colors['primary'],
             3,
             self.cv2.LINE_AA,
@@ -324,9 +324,9 @@ class WebcamPoseNode(Node):
         self.cv2.putText(
             frame,
             'repeticiones',
-            (card_x + 130, reps_card_y + 74),
+            (card_x + 18, reps_card_y + 102),
             self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
+            0.46,
             colors['gray'],
             1,
             self.cv2.LINE_AA,
@@ -334,14 +334,14 @@ class WebcamPoseNode(Node):
         self._draw_progress_bar(
             frame,
             card_x + 16,
-            reps_card_y + 98,
+            reps_card_y + 116,
             card_w - 32,
             12,
             self.repetitions / max(1, self.target_repetitions),
             colors['accent'],
         )
 
-        feedback_y = reps_card_y + 154
+        feedback_y = reps_card_y + 164
         self._draw_card(frame, card_x, feedback_y, card_w, 142)
         self.cv2.putText(
             frame,
@@ -386,10 +386,10 @@ class WebcamPoseNode(Node):
             1,
             self.cv2.LINE_AA,
         )
-        self._draw_metric(frame, card_x + 16, metric_y + 56, 'Puntos', str(visible_landmarks))
-        self._draw_metric(frame, card_x + 148, metric_y + 56, 'Camara', f'{self.camera_fps} FPS')
+        self._draw_metric(frame, card_x + 16, metric_y + 62, 'Puntos visibles', str(visible_landmarks))
+        self._draw_metric(frame, card_x + 164, metric_y + 62, 'Camara', f'{self.camera_fps} FPS')
 
-        footer_y = panel_y + panel_h - 56
+        footer_y = panel_y + panel_h - 70
         self.cv2.line(
             frame,
             (panel_x + 22, footer_y - 16),
@@ -399,20 +399,21 @@ class WebcamPoseNode(Node):
         )
         self.cv2.putText(
             frame,
-            'q salir    r reiniciar',
-            (panel_x + 22, footer_y + 8),
+            'q  salir        r  reiniciar',
+            (panel_x + 22, footer_y + 12),
             self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
+            0.52,
             colors['gray'],
             1,
             self.cv2.LINE_AA,
         )
+        self._draw_mini_dot(frame, panel_x + 24, footer_y + 32, colors['accent'])
         self.cv2.putText(
             frame,
             self.exercise_name,
-            (panel_x + 22, footer_y + 34),
+            (panel_x + 40, footer_y + 38),
             self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.47,
+            0.5,
             colors['secondary'],
             1,
             self.cv2.LINE_AA,
@@ -560,7 +561,7 @@ class WebcamPoseNode(Node):
             label,
             (x, y + 26),
             self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.43,
+            0.39,
             colors['gray'],
             1,
             self.cv2.LINE_AA,
@@ -617,6 +618,9 @@ class WebcamPoseNode(Node):
             'border': (235, 231, 229),
             'chip': (250, 243, 219),
         }
+
+    def _draw_mini_dot(self, frame, x, y, color):
+        self.cv2.circle(frame, (x, y), 5, color, -1)
 
     def destroy_node(self):
         if hasattr(self, 'pose'):
