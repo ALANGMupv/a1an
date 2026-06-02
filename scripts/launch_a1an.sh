@@ -102,3 +102,11 @@ gnome-terminal --title="A1ANRehab" -- bash -c "
   exec bash"
 
 echo -e "${GREEN}Todo lanzado. WebSocket: ws://localhost:9090 | Camara: http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg | Vision: http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg | Detecciones: /a1an_vision/detected_objects | Rehab: a1an_perception${NC}"
+
+# 9. YOLO webcam detector
+echo -e "${GREEN}[8/8] Lanzando detector de objetos con modelo entrenado con YOLO...${NC}"
+gnome-terminal --title="YOLODetector" -- bash -c "
+  source /opt/ros/jazzy/setup.bash
+  source ~/turtlebot3_ws/install/setup.bash
+  ros2 run a1an_vision webcam_detector
+  exec bash"
