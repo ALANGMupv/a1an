@@ -344,6 +344,23 @@ http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
 
 ---
 
+## Nota sobre la cámara y ROSBridge
+
+Si la web se abre desde Vercel (https://...), algunos navegadores pueden bloquear localhost por seguridad (https → http).
+
+Para pruebas locales se recomienda abrir la web con:
+
+bash
+cd ~/a1an\ web/a1an-web
+python3 -m http.server 5500
+
+
+Y acceder desde:
+
+http://localhost:5500/pages/dashboard.html
+
+---
+
 ## Arquitectura del Sistema
 
 El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**:
