@@ -139,6 +139,11 @@ ros2 run web_video_server web_video_server --ros-args -p port:=8081
 ros2 launch a1an_perception webcam_pose.launch.py
 ```
 
+**Terminal 9 - Detección de objetos con modelo de YOLO:**
+```bash
+ros2 launch a1an_a1an webcam_detector
+```
+
 La ventana de rehabilitación detecta automáticamente la webcam. Si hace falta forzar una cámara concreta:
 ```bash
 ros2 launch a1an_perception webcam_pose.launch.py camera_index:=0
