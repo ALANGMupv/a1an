@@ -1,264 +1,152 @@
-# A1AN – Robot Asistencial
+<div align="center">
 
-A1AN es un proyecto de robótica cuyo objetivo es diseñar un robot asistente capaz de ayudar a personas con movilidad reducida dentro del hogar.
+# A1AN
 
-El robot está orientado a tareas como la **búsqueda de objetos, asistencia en actividades diarias y apoyo a ejercicios de rehabilitación**, utilizando tecnologías de navegación autónoma y visión artificial.
+**Un robot que ayuda en casa a quien ha perdido movilidad.**
+Robot asistencial simulado en ROS 2: navega de forma autónoma por una vivienda, localiza objetos cotidianos con su cámara y guía ejercicios de rehabilitación con detección de pose.
 
-Memoria del Proyecto: https://drive.google.com/file/d/1wisK82p5xL6m8oBLiKEmlJY0FmWHW7__/view?usp=sharing
+[![ROS 2](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
+[![Gazebo](https://img.shields.io/badge/Gazebo-Sim-F58113)](https://gazebosim.org)
+[![Nav2](https://img.shields.io/badge/Nav2-navigation-2E7D32)](https://docs.nav2.org)
+[![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.10-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10-0097A7?logo=google&logoColor=white)](https://developers.google.com/mediapipe)
 
----
+</div>
 
-## Descripción del proyecto
+> Proyecto de Robótica del equipo A1AN (Grupo 2, Safe&Sound Robotics). [Memoria del proyecto](https://drive.google.com/file/d/1wisK82p5xL6m8oBLiKEmlJY0FmWHW7__/view?usp=sharing).
 
-El objetivo del proyecto es desarrollar un robot móvil que permita mejorar la **autonomía y seguridad del usuario en entornos domésticos**.
+## Índice
 
-Entre las funcionalidades principales del sistema se encuentran:
+- [Qué es](#qué-es)
+- [Funcionalidades](#funcionalidades)
+- [Arquitectura](#arquitectura)
+- [Paquetes ROS 2](#paquetes-ros-2)
+- [Topics e interfaz con la web](#topics-e-interfaz-con-la-web)
+- [Visión artificial: detección de objetos](#visión-artificial-detección-de-objetos)
+- [Rehabilitación con detección de pose](#rehabilitación-con-detección-de-pose)
+- [Puesta en marcha](#puesta-en-marcha)
+- [Comprobaciones](#comprobaciones)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Decisiones de diseño](#decisiones-de-diseño)
+- [Equipo](#equipo)
 
-* Navegación autónoma en interiores
-* Localización de objetos mediante visión artificial
-* Apoyo en tareas cotidianas
-* Asistencia en rutinas de rehabilitación
-* **Interfaz web de control remoto** (nueva)
+## Qué es
 
-El proyecto se centra en ofrecer una solución tecnológica accesible que ayude a personas que han perdido temporal o permanentemente parte de su movilidad.
+Las personas con movilidad reducida, temporal o permanente, dependen de otros para tareas tan simples como encontrar el teléfono, acercarse a la medicación o seguir una rutina de ejercicios de recuperación. A1AN es un robot móvil pensado para dar **autonomía y seguridad en el hogar** cubriendo esas tres necesidades.
 
----
+El proyecto se desarrolla sobre un **TurtleBot3 Burger con cámara** simulado en Gazebo, dentro de una vivienda amueblada. El robot se localiza sobre un mapa de la casa, navega a coordenadas o habitaciones con Nav2, reconoce una botella, un teléfono y una caja de medicinas con visión por color, y acompaña al usuario en ejercicios de brazos usando la webcam del ordenador. Todo se controla desde una interfaz web externa conectada por ROSBridge.
 
-## Tecnologías utilizadas
+> El robot no sustituye al cuidador: le quita las tareas repetitivas y le da al usuario margen para valerse por sí mismo.
 
-* **ROS 2 Jazzy**
-* **Gazebo / simulación robótica**
-* **Python**
-* **Visión artificial**
-* **Sistemas de navegación autónoma (Nav2)**
-* **ROSBridge / roslibjs** — comunicación web ↔ ROS 2
-* **HTML / CSS / JavaScript** — interfaz web desplegada en Vercel
+## Funcionalidades
 
----
+| Área | Qué ofrece |
+|---|---|
+| **Simulación** | Vivienda `small_house` (AWS RoboMaker) amueblada con 38 modelos de mobiliario y tres objetos de asistencia propios, y el TurtleBot3 `burger_cam` aparecido en `(-2.0, -1.0)`. |
+| **Localización** | Mapa estático de la casa servido por `map_server` y localización AMCL con la pose inicial ya configurada; RViz con la vista de navegación. |
+| **Navegación autónoma** | Nav2 (planificador global + controlador DWB) con costmaps que evitan obstáculos del LiDAR. Goals por coordenadas `[x, y]` desde la web o desde línea de comandos, y cancelación en cualquier momento. |
+| **Detección de objetos** | Reconoce **Botella**, **Teléfono** y **Medicinas** en la imagen de la cámara, publica las detecciones en JSON e imagen anotada con *bounding boxes*. |
+| **Rehabilitación** | Rutina de dos ejercicios (elevación de brazos y flexión de codos) con MediaPipe Pose: cuenta repeticiones, corrige asimetrías y muestra el progreso en pantalla. |
+| **Control web** | Puente ROSBridge (WebSocket `:9090`) y `web_video_server` (MJPEG `:8081`) para que la interfaz web mueva el robot, envíe goals, vea el mapa, la cámara y las detecciones. |
+| **Arranque en un comando** | [`scripts/launch_a1an.sh`](scripts/launch_a1an.sh) levanta los 8 componentes en orden, cada uno en su terminal. |
 
-## Instalación
+## Arquitectura
 
-Clonar el repositorio:
+```mermaid
+flowchart LR
+    subgraph Web["Interfaz web (navegador)"]
+        UI["Control manual · goals · mapa<br/>cámara · detecciones"]
+    end
 
-```bash
-git clone https://github.com/ALANGMupv/a1an.git
-cd ~/turtlebot3_ws
+    subgraph Bridge["Pasarelas"]
+        RB["rosbridge_server<br/>ws://:9090"]
+        WVS["web_video_server<br/>http://:8081"]
+    end
+
+    subgraph Sim["a1an_world · Gazebo"]
+        TB3["TurtleBot3 burger_cam"]
+    end
+
+    subgraph Nav["Localización y navegación"]
+        LOC["map_server + AMCL<br/>(a1an_localization)"]
+        NAV2["Nav2<br/>navigate_to_pose"]
+        NSN["nav_service_node<br/>(a1an_navigator)"]
+    end
+
+    subgraph Vision["a1an_vision"]
+        DET["assistive_object_detector"]
+    end
+
+    subgraph Rehab["a1an_perception"]
+        POSE["webcam_pose_node"]
+        CAM["Webcam del PC"]
+    end
+
+    UI <-->|WebSocket| RB
+    UI -->|MJPEG| WVS
+    RB -->|/nav_goal · /nav_cancel| NSN
+    RB -->|/cmd_vel| TB3
+    NSN -->|action| NAV2
+    LOC -->|/map · TF| NAV2
+    TB3 -->|/scan · /odom| LOC
+    TB3 -->|/scan| NAV2
+    NAV2 -->|/cmd_vel| TB3
+    TB3 -->|/camera/image_raw| DET
+    TB3 -->|/camera/image_raw| WVS
+    DET -->|/a1an_vision/debug_image| WVS
+    DET -->|/a1an_vision/detected_objects| RB
+    CAM --> POSE
 ```
 
-Instalar ROSBridge:
+- **Localización y navegación** siguen el esquema estándar de Nav2: `map_server` y `amcl` (con su `lifecycle_manager`) se lanzan aparte de `bt_navigator`, `planner_server` y `controller_server`, ambos con los parámetros de [`param/burger.yaml`](a1an_localization/param/burger.yaml).
+- **`nav_service_node`** es el puente entre la web y Nav2: traduce mensajes simples de topic en llamadas al *action server* `navigate_to_pose`, que roslibjs no tendría que gestionar.
+- **El vídeo no pasa por ROSBridge**: la web carga el MJPEG directamente de `web_video_server`. Por ROSBridge solo viajan mensajes ligeros (goals, velocidades, mapa y detecciones JSON).
+- **La rehabilitación** usa la webcam del ordenador, no la cámara del robot, y abre su propia ventana de OpenCV; su estado se publica en `/a1an/pose_status`.
 
-```bash
-sudo apt install ros-jazzy-rosbridge-suite
-```
+## Paquetes ROS 2
 
-Instalar dependencias para detección de pose y rehabilitación con webcam:
+| Paquete | Tipo | Contenido |
+|---|---|---|
+| [`a1an`](a1an) | ament_cmake | Metapaquete del proyecto. |
+| [`a1an_world`](a1an_world) | ament_cmake | Launch de Gazebo, mundo [`small_house_fixed.world`](a1an_world/worlds/small_house_fixed.world) y modelos (muebles y objetos de asistencia). |
+| [`a1an_localization`](a1an_localization) | ament_python | Mapa de la casa, parámetros de AMCL/Nav2, launch de localización con RViz. |
+| [`a1an_navigator`](a1an_navigator) | ament_python | Launch de Nav2 y los nodos `nav_service_node` y `nav_to_pose`. |
+| [`a1an_vision`](a1an_vision) | ament_python | `assistive_object_detector` (detección por color) y `camera_viewer` (visor de depuración). |
+| [`a1an_perception`](a1an_perception) | ament_python | `webcam_pose_node`: rehabilitación con MediaPipe Pose. |
 
-```bash
-python3 -m pip install --user --break-system-packages "numpy==1.26.4" "opencv-python==4.10.0.84" "mediapipe==0.10.14"
-```
+### Ejecutables y launch files
 
-Construir el workspace:
+| Comando | Qué hace |
+|---|---|
+| `ros2 launch a1an_world a1an_world.launch.py` | Gazebo con la casa y el robot `burger_cam`. |
+| `ros2 launch a1an_localization my_map_server.launch.py` | `map_server`, `amcl`, `lifecycle_manager` y RViz. |
+| `ros2 launch a1an_navigator navigation.launch.py` | Stack de navegación de Nav2 (`nav2_bringup`). |
+| `ros2 run a1an_navigator nav_service_node` | Escucha `/nav_goal` y `/nav_cancel` y los envía a Nav2. |
+| `ros2 run a1an_navigator nav_to_pose <x> <y>` | Envía un único goal desde la terminal y termina al llegar. |
+| `ros2 launch a1an_vision vision.launch.py` | Detector de objetos sobre `/camera/image_raw`. |
+| `ros2 run a1an_vision camera_viewer` | Muestra en una ventana la imagen de la cámara del robot. |
+| `ros2 launch a1an_perception webcam_pose.launch.py` | Rutina de rehabilitación con la webcam. |
 
-```bash
-colcon build
-```
+## Topics e interfaz con la web
 
-Activar el entorno:
+La interfaz web se conecta a `ws://localhost:9090` (o `ws://IP_DEL_PC_ROS:9090` desde otro equipo) y usa estos topics y streams:
 
-```bash
-source install/setup.bash
-```
+| Topic / URL | Tipo | Sentido | Uso |
+|---|---|---|---|
+| `/nav_goal` | `std_msgs/Float64MultiArray` | web → robot | Goal `[x, y]` en el frame `map`. |
+| `/nav_cancel` | `std_msgs/Bool` | web → robot | `true` cancela la navegación activa. |
+| `/cmd_vel` | velocidad | web → robot | Control manual. |
+| `/map` | `nav_msgs/OccupancyGrid` | robot → web | Plano de la casa para dibujarlo en la web. |
+| `/a1an_vision/detected_objects` | `std_msgs/String` (JSON) | robot → web | Detecciones de objetos. |
+| `/a1an_vision/status` | `std_msgs/String` | robot → web | Mensaje de estado legible de la detección. |
+| `/a1an/pose_status` | `std_msgs/String` | rehab → web | Ejercicio, repeticiones, estado y feedback. |
+| `:8081/stream?topic=/camera/image_raw&type=mjpeg` | MJPEG | robot → web | Cámara del robot. |
+| `:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg` | MJPEG | robot → web | Cámara con las detecciones dibujadas. |
 
----
+`localhost` solo sirve si el navegador está en el mismo ordenador que ROS 2; desde la web desplegada u otro equipo hay que usar la IP de ese ordenador.
 
-## Ejecución
-
-### Opción 1 — Script automático (recomendado)
-
-Lanza todo el stack completo con un solo comando (asegúrate de hacer source primero):
-
-```bash
-cd ~/turtlebot3_ws
-source install/setup.bash
-./src/a1an/scripts/launch_a1an.sh
-```
-
-El script lanza automáticamente en terminales separadas y en el orden correcto:
-1. Gazebo (mundo)
-2. Localización y mapa
-3. Navegación (Nav2)
-4. Nodo de navegación web (`nav_service_node`)
-5. ROSBridge WebSocket server
-6. Detector de objetos (`a1an_vision`)
-7. Servidor de video de la camara (`web_video_server`)
-8. Rehabilitación con webcam (`a1an_perception`)
-
----
-
-### Opción 2 — Lanzamiento manual
-
-Abre 8 terminales y ejecuta los siguientes comandos (asegúrate de hacer `source install/setup.bash` en cada una):
-
-**Terminal 1 — Mundo Gazebo:**
-```bash
-ros2 launch a1an_world a1an_world.launch.py
-```
-
-**Terminal 2 — Localización y Mapa:**
-```bash
-ros2 launch a1an_localization my_map_server.launch.py
-```
-
-**Terminal 3 — Navegación / Nav2:**
-```bash
-ros2 launch a1an_navigator navigation.launch.py
-```
-
-**Terminal 4 — Nodo de navegación web:**
-```bash
-ros2 run a1an_navigator nav_service_node
-```
-
-**Terminal 5 — ROSBridge:**
-```bash
-ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
-```
-
-**Terminal 6 - Vision artificial:**
-```bash
-ros2 launch a1an_vision vision.launch.py
-```
-
-**Terminal 7 - Servidor de video de la camara:**
-```bash
-ros2 run web_video_server web_video_server --ros-args -p port:=8081
-```
-
-**Terminal 8 - Rehabilitación con webcam:**
-```bash
-ros2 launch a1an_perception webcam_pose.launch.py
-```
-
-La ventana de rehabilitación detecta automáticamente la webcam. Si hace falta forzar una cámara concreta:
-```bash
-ros2 launch a1an_perception webcam_pose.launch.py camera_index:=0
-```
-
-Controles de la ventana:
-
-```text
-q - salir
-e - reiniciar solo el ejercicio actual
-r - reiniciar toda la rutina
-```
-
----
-
-## Interfaz Web
-
-El proyecto incluye una interfaz web desplegada en Vercel que permite controlar el robot remotamente desde el navegador.
-
-### Acceso
-
-Abre la web en el navegador y conecta al ROSBridge introduciendo la dirección:
-
-```
-ws://localhost:9090
-```
-
-La imagen de la camara se sirve mediante `web_video_server` desde:
-
-```
-http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
-```
-
-La imagen procesada por vision artificial, con bounding boxes y etiquetas, se sirve desde:
-
-```
-http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
-```
-
-`localhost` solo funciona cuando el navegador se abre en el mismo ordenador que esta ejecutando ROS 2 y `web_video_server`. Si se usa la web desplegada o se accede desde otro equipo, hay que sustituirlo por la IP del ordenador del robot/simulador:
-
-```
-http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/camera/image_raw&type=mjpeg
-```
-
-Para la imagen procesada desde otro equipo:
-
-```
-http://IP_DEL_ROBOT_O_PC_ROS:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
-```
-
-### Funcionalidades
-
-* **Conexión** — Conecta y desconecta del ROSBridge con un botón
-* **Control manual** — 4 botones direccionales + stop para mover el robot manualmente
-* **Navegación por coordenadas** — Introduce X e Y y el robot navega hasta ese punto
-* **Navegación por áreas** — Selector con áreas predefinidas (cocina, sala, habitación...)
-* **Detener navegación** — Cancela la ruta activa y detiene el robot en su posición actual
-* **Camara del robot** - Muestra en streaming la imagen publicada en `/camera/image_raw`
-* **Vision artificial** - Puede mostrar `/a1an_vision/debug_image` y leer detecciones desde `/a1an_vision/detected_objects`
-
-### Cómo funciona
-
-```
-Web (Vercel) → WebSocket → ROSBridge (puerto 9090) → ROS 2 → TurtleBot
-```
-
-La navegación autónoma funciona a través de un nodo intermediario (`nav_service_node`) que recibe goals desde la web vía topic `/nav_goal` y los envía al action server de Nav2 `/navigate_to_pose`.
-
-### Pruebas y Troubleshooting (Paso 5)
-
-Si al conectar la interfaz web el plano de la casa no carga, asegúrate de que ROS 2 está publicando el mapa.
-
-1. Ejecuta ROSBridge y verifica que el topic existe:
-   ```bash
-   ros2 topic list
-   ```
-   *(Debe aparecer `/map` entre los resultados).*
-
-2. Comprueba que está emitiendo los datos del grid:
-   ```bash
-   ros2 topic echo /map --once
-   ```
-   *(Debería mostrarte una enorme lista de números `-1`, `0` o `100`).*
-
-3. En la web:
-   - Haz clic en *Conectar* a `ws://localhost:9090`.
-   - Si el topic `/map` funciona pero la pantalla sigue negra, revisa inspeccionando los estilos del `<canvas id="rosMapCanvas">` en modo desarrollador de Google Chrome.
-
-El video de la camara no se envia por ROSBridge. La web carga directamente el stream MJPEG publicado por `web_video_server`, que lee el topic `/camera/image_raw`.
-
-La imagen con detecciones tampoco se envia por ROSBridge. La web debe cargar el stream MJPEG de `/a1an_vision/debug_image` desde `web_video_server`. Los datos estructurados de deteccion si se consumen por ROSBridge leyendo `/a1an_vision/detected_objects`.
-
-### Contrato para la web
-
-La web debe conectarse a ROSBridge:
-
-```text
-ws://localhost:9090
-```
-
-Si la web se abre desde otro equipo:
-
-```text
-ws://IP_DEL_ROBOT_O_PC_ROS:9090
-```
-
-Topic de detecciones:
-
-```text
-/a1an_vision/detected_objects
-```
-
-Tipo:
-
-```text
-std_msgs/String
-```
-
-El campo `data` contiene un JSON con esta estructura:
+El campo `data` de `/a1an_vision/detected_objects` contiene un JSON con esta forma:
 
 ```json
 {
@@ -279,92 +167,183 @@ El campo `data` contiene un JSON con esta estructura:
 }
 ```
 
-Valores posibles de `label`:
+`label` es `Botella`, `Telefono` o `Medicinas`; `bbox` es `[x, y, ancho, alto]` en píxeles, y `position` combina la fila (`arriba`, `centro`, `abajo`) y la columna (`izquierda`, `centro`, `derecha`) de una cuadrícula 3×3 sobre la imagen.
+
+## Visión artificial: detección de objetos
+
+[`assistive_object_detector.py`](a1an_vision/a1an_vision/assistive_object_detector.py) procesa uno de cada `process_every_n_frames` fotogramas (2 por defecto) y, para cada objeto objetivo:
+
+1. Convierte la imagen a HSV y crea una máscara con el rango de color del objeto.
+2. Limpia la máscara con operaciones morfológicas (apertura, cierre, dilatación).
+3. Recorre los contornos de mayor a menor área y se queda con el primero que cumple los filtros de forma, tamaño, posición y contexto.
+
+| Objeto | Color (H) | Filtros que lo distinguen |
+|---|---|---|
+| **Botella** | 95–135 (azul) | Área ≥ 120 px², alargada en vertical (ancho/alto ≤ 0,85). |
+| **Teléfono** | 75–110 (pantalla cian) | Área ≥ 8 px², apaisado (ancho/alto ≥ 1,1). |
+| **Medicinas** | 45–85 (cruz verde) | Área ≥ 6 px², en la mitad inferior de la imagen, no más del 28 % de ancho ni 45 % de alto y rodeada al menos en un 35 % de fondo claro (la caja es blanca). |
+
+La confianza es proporcional al área del contorno y se satura en 1:
 
 ```text
-Botella
-Telefono
-Medicinas
+confidence = min(1, área / (min_area · 8))
 ```
 
-Stream recomendado para mostrar vision en la web:
+Ejemplo: una botella (`min_area = 120`) con un contorno de 480 px² da `480 / 960 = 0,5` → 50 %; a partir de 960 px² marca 100 %.
 
-```text
-http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+## Rehabilitación con detección de pose
+
+[`webcam_pose_node.py`](a1an_perception/a1an_perception/webcam_pose_node.py) abre la webcam, estima la pose con MediaPipe y guía una rutina de dos ejercicios con `target_repetitions` repeticiones cada uno (10 por defecto):
+
+```mermaid
+flowchart LR
+    A["Colócate frente<br/>a la cámara"] --> B{"¿Hombros, codos y<br/>muñecas visibles?"}
+    B -- No --> A
+    B -- Sí --> C["Ejercicio 1<br/>Elevación de brazos"]
+    C -- "10 repeticiones" --> D["Ejercicio 2<br/>Flexión de codos"]
+    D -- "10 repeticiones" --> E["Rutina completada"]
 ```
 
-### Comprobacion de la camara
+| Ejercicio | Cuenta una repetición cuando… | Se rearma cuando… |
+|---|---|---|
+| **Elevación de brazos** | Ambas muñecas suben por encima de la línea de hombros (margen 0,06) con los codos también arriba. | Ambas muñecas bajan por debajo de los hombros. |
+| **Flexión de codos** | Ambas muñecas quedan por encima de sus codos, sin levantar los codos por encima de los hombros. | Ambos brazos vuelven a extenderse. |
 
-Con Gazebo lanzado usando `burger_cam`, se puede comprobar que la camara esta disponible con:
+Si solo trabaja un brazo, la ventana avisa de que hay que hacerlo de forma simétrica. Cada repetición se cuenta una sola vez gracias a un indicador de "movimiento activo" que solo se rearma al volver a la posición de reposo. Con anchos de imagen de 900 px o más se dibuja un panel lateral (progreso, feedback y seguimiento); por debajo, un panel compacto.
+
+| Tecla | Acción |
+|---|---|
+| `q` | Salir. |
+| `e` | Reiniciar el ejercicio actual. |
+| `r` | Reiniciar toda la rutina. |
+
+Parámetros del launch: `camera_index` (0; `-1` prueba los índices 0–9 y usa la primera webcam que entregue imagen), `mirror_image` (`true`), `model_complexity` (1), `frame_width`×`frame_height` (1024×768), `camera_fps` (15), `camera_fourcc` (`MJPG`) y `target_repetitions` (10).
 
 ```bash
-ros2 topic list | grep camera
-ros2 topic info /camera/image_raw -v
+ros2 launch a1an_perception webcam_pose.launch.py camera_index:=-1 target_repetitions:=5
 ```
 
-Debe aparecer al menos:
+## Puesta en marcha
 
-```text
-/camera/camera_info
-/camera/image_raw
-```
+### Requisitos
 
-Para probar el stream antes de abrir la web:
+- Ubuntu 24.04 con **ROS 2 Jazzy** y Gazebo.
+- Un workspace en `~/turtlebot3_ws` con los paquetes de TurtleBot3, incluido `turtlebot3_gazebo` (el script de arranque usa esa ruta).
+- Nav2, ROSBridge, `web_video_server` y `cv_bridge`.
+- Una webcam para la rehabilitación.
 
-```text
-http://localhost:8081/snapshot?topic=/camera/image_raw
-http://localhost:8081/stream?topic=/camera/image_raw&type=mjpeg
-```
-
-### Comprobacion de vision artificial
-
-El nodo de vision se lanza con:
+### Instalación
 
 ```bash
+# 1. Clonar dentro del workspace de TurtleBot3
+cd ~/turtlebot3_ws/src
+git clone https://github.com/ALANGMupv/a1an.git
+
+# 2. Dependencias de ROS 2
+sudo apt install ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-rosbridge-suite ros-jazzy-web-video-server ros-jazzy-cv-bridge
+
+# 3. Dependencias Python de la rehabilitación (versiones compatibles entre sí)
+python3 -m pip install --user --break-system-packages "numpy==1.26.4" "opencv-python==4.10.0.84" "mediapipe==0.10.14"
+
+# 4. Compilar y cargar el entorno
+cd ~/turtlebot3_ws
+colcon build
+source install/setup.bash
+```
+
+### Ejecución con un solo comando
+
+```bash
+cd ~/turtlebot3_ws
+source install/setup.bash
+./src/a1an/scripts/launch_a1an.sh
+```
+
+⚠️ El script empieza cerrando cualquier proceso de Gazebo que esté abierto. Después abre una terminal (`gnome-terminal`) por componente, con pausas entre ellos para respetar las dependencias: Gazebo → localización → Nav2 → `nav_service_node` → ROSBridge → detector de objetos → `web_video_server` → rehabilitación.
+
+### Ejecución manual
+
+Una terminal por componente, con `source install/setup.bash` en cada una y en este orden:
+
+```bash
+ros2 launch a1an_world a1an_world.launch.py
+ros2 launch a1an_localization my_map_server.launch.py
+ros2 launch a1an_navigator navigation.launch.py
+ros2 run a1an_navigator nav_service_node
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml delay_between_messages:=0.0
 ros2 launch a1an_vision vision.launch.py
+ros2 run web_video_server web_video_server --ros-args -p port:=8081
+ros2 launch a1an_perception webcam_pose.launch.py
 ```
 
-Publica las detecciones en:
+Para mandar el robot a un punto sin la web:
 
 ```bash
-ros2 topic echo /a1an_vision/detected_objects
+ros2 run a1an_navigator nav_to_pose 1.5 -0.8
 ```
 
-Tambien publica una imagen procesada con los bounding boxes en:
+## Comprobaciones
 
-```bash
-ros2 topic info /a1an_vision/debug_image
-```
+| Qué comprobar | Comando o URL |
+|---|---|
+| El mapa se publica (si la web no lo dibuja) | `ros2 topic echo /map --once` → lista de valores `-1`, `0` y `100`. |
+| La cámara del robot está activa | `ros2 topic list \| grep camera` → `/camera/camera_info` y `/camera/image_raw`. |
+| El stream de cámara funciona | `http://localhost:8081/snapshot?topic=/camera/image_raw` |
+| El detector publica | `ros2 topic echo /a1an_vision/detected_objects` |
+| La imagen anotada llega | `http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg` |
+| La rehabilitación publica su estado | `ros2 topic echo /a1an/pose_status` |
+| Enviar un goal a mano | `ros2 topic pub --once /nav_goal std_msgs/msg/Float64MultiArray "{data: [1.5, -0.8]}"` |
 
-Si `web_video_server` esta activo, la imagen procesada se puede comprobar en:
+## Estructura del repositorio
 
 ```text
-http://localhost:8081/stream?topic=/a1an_vision/debug_image&type=mjpeg
+a1an/
+├── a1an/                     # Metapaquete
+├── a1an_world/
+│   ├── launch/               # a1an_world.launch.py: Gazebo + robot burger_cam
+│   ├── worlds/               # small_house_fixed.world (mundo que se lanza)
+│   ├── models/               # Muebles AWS RoboMaker y objetos a1an_assistive_*
+│   └── urdf/                 # Descripciones del TurtleBot3 Burger (con y sin cámara)
+├── a1an_localization/
+│   ├── launch/               # my_map_server.launch.py: map_server + AMCL + RViz
+│   ├── map/                  # my_map.pgm / my_map.yaml (resolución 5 cm)
+│   ├── param/                # burger.yaml: parámetros de AMCL y Nav2
+│   └── rviz/                 # Configuración de RViz para navegación
+├── a1an_navigator/
+│   ├── launch/               # navigation.launch.py: Nav2
+│   └── a1an_navigator/       # nav_service_node.py, nav_to_pose.py
+├── a1an_vision/
+│   ├── launch/               # vision.launch.py
+│   └── a1an_vision/          # assistive_object_detector.py, camera_viewer.py
+├── a1an_perception/
+│   ├── launch/               # webcam_pose.launch.py
+│   └── a1an_perception/      # webcam_pose_node.py
+├── a1an_documentacion/       # Documento de concepción (Sprint 0) y estructura
+└── scripts/launch_a1an.sh    # Arranque completo en 8 terminales
 ```
 
----
+## Decisiones de diseño
 
-## Arquitectura del Sistema
-
-El proyecto se basa en una arquitectura modular de **Nav2 (ROS 2 Navigation Stack)**:
-
-* **Camara** - El robot se lanza como `burger_cam` para publicar imagen en `/camera/image_raw`; `web_video_server` expone ese topic como stream MJPEG para la interfaz web.
-* **Vision artificial** - El paquete `a1an_vision` procesa `/camera/image_raw`, detecta objetos domesticos por color y publica resultados en `/a1an_vision/detected_objects`.
-* **Rehabilitación** - El paquete `a1an_perception` usa la webcam del ordenador para detectar la pose humana, contar repeticiones y dar feedback sobre ejercicios de recuperación.
-* **Percepción** — Los nodos `/local_costmap` y `/global_costmap` procesan en tiempo real los datos del sensor LiDAR (`/scan`) para identificar obstáculos dinámicos y estáticos.
-* **Planificación** — El `/planner_server` calcula la trayectoria óptima en el mapa global, mientras que el `/controller_server` ajusta la velocidad local para seguir el camino.
-* **Gestión de Ciclo de Vida** — Los nodos `lifecycle_manager` coordinan la activación secuencial de todos los servicios para garantizar que el robot no se mueva hasta que los sensores y el mapa estén listos.
-* **Interfaz de Misión** — El nodo `nav_service_node` (en `a1an_navigator`) actúa como puente entre la interfaz web y el action server de Nav2, suscribiéndose al topic `/nav_goal` y `/nav_cancel`.
-* **Interfaz Web** — ROSBridge expone los topics y actions de ROS 2 vía WebSocket, permitiendo que la web interactúe con el robot usando la librería roslibjs.
-
----
+- **Topics en vez de acciones hacia la web.** La web publica `[x, y]` en `/nav_goal` y `nav_service_node` se ocupa del *action client* de Nav2 (espera al servidor, feedback, cancelación). Así la web solo necesita publicar mensajes simples por ROSBridge.
+- **Vídeo fuera de ROSBridge.** Enviar imágenes por WebSocket en JSON es costoso; `web_video_server` las sirve como MJPEG que el navegador muestra directamente en una etiqueta de imagen.
+- **Detección por color en lugar de un modelo entrenado.** En una simulación con objetos propios de colores controlados, umbrales HSV y filtros geométricos son deterministas, ligeros y fáciles de ajustar. Botella y teléfono comparten parte del rango de color y se separan por proporción (vertical frente a apaisado); la caja de medicinas se distingue exigiendo fondo claro alrededor, para no confundirla con otros elementos verdes de la casa.
+- **Procesar uno de cada dos fotogramas.** El detector publica a la mitad de frecuencia que la cámara, suficiente para una interfaz y con la mitad de carga de CPU.
+- **Objetos de asistencia propios.** `a1an_assistive_bottle` (azul), `_phone` (pantalla cian) y `_medicine_box` (caja blanca con cruz verde) se modelaron con colores pensados para la detección, en vez de depender de los muebles genéricos del mundo.
+- **Pose inicial coherente.** El robot aparece en `(-2.0, -1.0)` y AMCL arranca con esa misma pose en `burger.yaml`, de modo que la navegación funciona sin tener que fijarla a mano en RViz.
+- **Rehabilitación con la webcam del PC.** Los ejercicios se hacen frente al ordenador, donde está el usuario; MediaPipe Pose corre en CPU y no necesita GPU ni entrenamiento.
+- **Repeticiones con histéresis.** Una repetición se cuenta al alcanzar la postura objetivo y no vuelve a contar hasta regresar a la posición de reposo, con márgenes sobre la línea de hombros para evitar dobles conteos por pequeñas oscilaciones.
+- **Feedback correctivo, no solo un contador.** El nodo detecta el movimiento asimétrico (un solo brazo) y pide corregirlo, porque en rehabilitación la calidad del gesto importa tanto como el número de repeticiones.
 
 ## Equipo
 
-Equipo A1AN – Proyecto de Robótica
+- Alan Guevara
+- Santiago Fuenmayor
+- Nerea Aguilar
+- Alejandro Vázquez
+- Judit Espinoza
 
-* Alan Guevara
-* Santiago Fuenmayor
-* Nerea Aguilar
-* Alejandro Vázquez
-* Judit Espinoza
+<div align="center">
+
+A1AN · Safe&Sound Robotics · Proyecto de Robótica
+
+</div>
